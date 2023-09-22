@@ -21,6 +21,12 @@
             <artifactId>jira-api</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>     
+            <groupId>jta</groupId>
+            <artifactId>jta</artifactId>
+            <version>1.0.1b</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>commons-collections</groupId>
             <artifactId>commons-collections</artifactId>
