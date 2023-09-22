@@ -1,0 +1,12 @@
+.classpath
+.project
+**/target/
+target/
+.settings/
+.idea/
+*.iml
+**/*.iml
+*.ipr
+*.iws
+*.orig
+*.orig2
