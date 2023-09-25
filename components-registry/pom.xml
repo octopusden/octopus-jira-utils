@@ -13,6 +13,7 @@
 
     <properties>
         <fuel.version>1.15.0</fuel.version>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
     </properties>
 
     <dependencies>
