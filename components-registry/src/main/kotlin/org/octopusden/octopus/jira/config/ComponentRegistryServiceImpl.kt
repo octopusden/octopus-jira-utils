@@ -4,15 +4,33 @@ import com.atlassian.cache.CacheManager
 import com.atlassian.jira.project.Project
 import com.atlassian.jira.project.version.Version
 import feign.FeignException
+import java.util.Date
+import java.util.Optional
+import java.util.SortedSet
 import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
-import org.octopusden.octopus.components.registry.core.dto.*
+import org.octopusden.octopus.components.registry.core.dto.ComponentInfoDTO
+import org.octopusden.octopus.components.registry.core.dto.ComponentVersionFormatDTO
+import org.octopusden.octopus.components.registry.core.dto.DistributionDTO
+import org.octopusden.octopus.components.registry.core.dto.JiraComponentDTO
+import org.octopusden.octopus.components.registry.core.dto.JiraComponentVersionDTO
+import org.octopusden.octopus.components.registry.core.dto.JiraComponentVersionRangeDTO
+import org.octopusden.octopus.components.registry.core.dto.VCSSettingsDTO
+import org.octopusden.octopus.components.registry.core.dto.VcsRootDateDTO
+import org.octopusden.octopus.components.registry.core.dto.VersionControlSystemRootDTO
+import org.octopusden.octopus.components.registry.core.dto.VersionNamesDTO
+import org.octopusden.octopus.components.registry.core.dto.VersionRequest
 import org.octopusden.octopus.jira.exception.JiraApplicationException
-import org.octopusden.octopus.jira.model.*
 import org.octopusden.octopus.jira.model.Component
 import org.octopusden.octopus.jira.model.ComponentRegistryVersion
 import org.octopusden.octopus.jira.model.DetailedComponentVersion
 import org.octopusden.octopus.jira.model.DetailedComponentVersions
+import org.octopusden.octopus.jira.model.Distribution
+import org.octopusden.octopus.jira.model.JiraComponentVersionRange
+import org.octopusden.octopus.jira.model.JiraProjectVersion
 import org.octopusden.octopus.jira.model.RepositoryType
+import org.octopusden.octopus.jira.model.VCSSettings
+import org.octopusden.octopus.jira.model.VcsRootLastChangeDate
+import org.octopusden.octopus.jira.model.VersionControlSystemRoot
 import org.octopusden.octopus.releng.JiraComponentVersionFormatter
 import org.octopusden.octopus.releng.dto.ComponentInfo
 import org.octopusden.octopus.releng.dto.ComponentVersion
@@ -21,7 +39,6 @@ import org.octopusden.octopus.releng.dto.JiraComponentVersion
 import org.octopusden.releng.versions.ComponentVersionFormat
 import org.octopusden.releng.versions.VersionNames
 import org.slf4j.LoggerFactory
-import java.util.*
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -31,7 +48,9 @@ class ComponentRegistryServiceImpl @Inject constructor(
         private val cacheManager: CacheManager
 ) : ComponentRegistryService {
 
-    private val jiraComponentVersionFormatter = createJiraComponentVersionFormatter(client)
+    private lateinit var versionNames: VersionNames
+
+    private val jiraComponentVersionFormatter = createJiraComponentVersionFormatter()
 
     private var fixedRemoteDate: Date = Date(0L)
 
@@ -174,24 +193,27 @@ class ComponentRegistryServiceImpl @Inject constructor(
                 .toModel()
     }
 
-    private fun createJiraComponentVersionFormatter(client: ComponentsRegistryServiceClient): JiraComponentVersionFormatter {
-        val versionNamesMap = client.getVersionNames()
-        val versionNames = VersionNames(
-            versionNamesMap["service-branch"]
-                ?: throw IllegalArgumentException("service-branch version name must be defined"),
-            versionNamesMap["service"] ?: throw IllegalArgumentException("service version name must be defined"),
-            versionNamesMap["minor"] ?: throw IllegalArgumentException("minor version name must be defined")
-        )
-        return JiraComponentVersionFormatter(versionNames)
+    private fun createJiraComponentVersionFormatter(): JiraComponentVersionFormatter {
+        return JiraComponentVersionFormatter(getVersionNames())
     }
 
     override fun getAllComponents(): List<Component> {
         return allComponentsCache.get(Unit)!!
     }
 
+    override fun getVersionNames(): VersionNames {
+        if (::versionNames.isInitialized) {
+            return versionNames
+        }
+        val vn = client.getVersionNames()
+        return vn.toModel()
+    }
+
     override fun getComponent(component: String): Optional<Component> {
         return componentsCache.get(component)!!
     }
+
+    override fun getComponentVersionFormatter() = jiraComponentVersionFormatter
 
     override fun isVersionMinor(version: Version): Boolean {
         return isMinorVersionCache.get(version)!!
@@ -309,6 +331,10 @@ class ComponentRegistryServiceImpl @Inject constructor(
                 distribution.toModel(),
                 vcsSettings.toModel()
         )
+    }
+
+    private fun VersionNamesDTO.toModel(): VersionNames {
+        return VersionNames(serviceBranch, service, minor)
     }
 
     private fun VcsRootDateDTO.toModel(): VcsRootLastChangeDate {
