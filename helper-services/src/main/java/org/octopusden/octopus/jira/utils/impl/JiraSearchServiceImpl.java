@@ -100,7 +100,7 @@ public class JiraSearchServiceImpl implements JiraSearchService {
         final long cfId = cf.getIdAsLong();
         final Query query = JqlQueryBuilder.newBuilder().where().customField(cfId).like(searchFieldValue).buildQuery();
         final MessageSet messageSet = searchService.validateQuery(user, query);
-        checkMessageSet(messageSet);
+        checkMessageSet(messageSet, query, user);
         final List<Issue> issues = getIssuesFromQuery(user, query);
         if (!equalComparison) {
             return issues;
@@ -115,7 +115,7 @@ public class JiraSearchServiceImpl implements JiraSearchService {
     @Override
     public List<Issue> getIssuesFromQuery(ApplicationUser user, Query query) {
         MessageSet messageSet = searchService.validateQuery(user, query);
-        checkMessageSet(messageSet);
+        checkMessageSet(messageSet, query, user);
         try {
             SearchResults<Issue> searchResults = searchService.search(user, query, PagerFilter.getUnlimitedFilter());
             return searchResults.getResults();
@@ -124,18 +124,21 @@ public class JiraSearchServiceImpl implements JiraSearchService {
         }
     }
 
-    private void checkMessageSet(MessageSet messageSet) {
+    private void checkMessageSet(MessageSet messageSet, Query query, ApplicationUser user) {
+
         if (messageSet.hasAnyWarnings()) {
             LOG.warn(messageSet.getWarningMessages().size() + " warning(s) has been generated:");
             for (String warning : messageSet.getWarningMessages()) {
                 LOG.warn("\t" + warning);
             }
+            LOG.warn("Query " + query.getQueryString() + " by " + user.getName());
         }
         if (messageSet.hasAnyErrors()) {
             LOG.error(messageSet.getErrorMessages().size() + " error(s) has been found:");
             for (String error : messageSet.getErrorMessages()) {
                 LOG.error("\t" + error);
             }
+            LOG.error("Query " + query.getQueryString() + " by " + user.getName());
         }
     }
 }
