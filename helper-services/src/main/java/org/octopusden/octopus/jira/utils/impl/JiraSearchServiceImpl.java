@@ -131,14 +131,14 @@ public class JiraSearchServiceImpl implements JiraSearchService {
             for (String warning : messageSet.getWarningMessages()) {
                 LOG.warn("\t" + warning);
             }
-            LOG.warn("Query " + query.getQueryString() + " by " + user.getName());
+            LOG.warn("Query " + query.toString() + " by " + user.getName());
         }
         if (messageSet.hasAnyErrors()) {
             LOG.error(messageSet.getErrorMessages().size() + " error(s) has been found:");
             for (String error : messageSet.getErrorMessages()) {
                 LOG.error("\t" + error);
             }
-            LOG.error("Query " + query.getQueryString() + " by " + user.getName());
+            LOG.error("Query " + query.toString() + " by " + user.getName());
         }
     }
 }
