@@ -16,7 +16,7 @@ import com.atlassian.jira.project.version.Version;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.jira.util.WarningCollection;
 import com.atlassian.jira.web.util.AttachmentException;
-import org.octopusden.octopus.jira.enums.CustomField;
+import org.octopusden.octopus.jira.enums.JiraCustomField;
 import org.octopusden.octopus.jira.exception.JiraApplicationException;
 import org.octopusden.octopus.jira.exception.JiraInternalErrorException;
 import org.octopusden.octopus.jira.utils.JiraCreateService;
@@ -87,7 +87,7 @@ public class JiraCreateServiceImpl implements JiraCreateService {
                 .moveAffectedIssuesTo(movingTo)
                 .moveFixIssuesTo(movingTo);
 
-        Stream.of(CustomField.RC_VERSIONS, CustomField.APPROVED_FOR_RELEASE, CustomField.HIGHLIGHT, CustomField.IMPACTS_ON)
+        Stream.of(JiraCustomField.RC_VERSIONS, JiraCustomField.APPROVED_FOR_RELEASE, JiraCustomField.HIGHLIGHT, JiraCustomField.IMPACTS_ON)
                 .flatMap(cfs -> customFieldManager.getCustomFieldObjectsByName(cfs.getName()).stream())
                 .map(com.atlassian.jira.issue.fields.CustomField::getIdAsLong)
                 .forEach(cfId -> builder.moveCustomFieldTo(cfId, movingTo));
