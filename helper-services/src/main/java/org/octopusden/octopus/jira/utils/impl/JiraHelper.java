@@ -21,7 +21,7 @@ import com.atlassian.query.Query;
 import com.atlassian.query.order.SortOrder;
 import com.google.common.collect.Lists;
 import org.octopusden.octopus.jira.enums.IssueTypeEnum;
-import org.octopusden.octopus.jira.enums.CustomField;
+import org.octopusden.octopus.jira.enums.JiraCustomField;
 import org.octopusden.octopus.jira.exception.JiraApplicationException;
 import org.octopusden.octopus.jira.exception.JiraObjectNotFoundException;
 import org.octopusden.octopus.jira.exception.JiraSearchEngineException;
@@ -102,7 +102,7 @@ public class JiraHelper implements IJiraHelper {
     }
 
     @Override
-    public Object getCustomFieldValue(Issue issue, CustomField owCustomField) {
+    public Object getCustomFieldValue(Issue issue, JiraCustomField owCustomField) {
         com.atlassian.jira.issue.fields.CustomField customField = getCustomField(owCustomField.getName());
         if (customField == null) {
             throw new JiraApplicationException("Unable to find custom field " + owCustomField.getName() + ". Configure JIRA Instance");
@@ -236,7 +236,7 @@ public class JiraHelper implements IJiraHelper {
 
     @Override
     public List<Issue> getIssuesWithPartialReopenUpdatedAfterDate(ApplicationUser user, Project project, List<Version> versions, Date date) {
-        return getIssuesWithVersionsPickerCustomFieldUpdatedAfterDate(CustomField.APPROVED_FOR_RELEASE.getName(), user, project, versions, date);
+        return getIssuesWithVersionsPickerCustomFieldUpdatedAfterDate(JiraCustomField.APPROVED_FOR_RELEASE.getName(), user, project, versions, date);
     }
 
     private List<Issue> getIssuesWithVersionsPickerCustomFieldUpdatedAfterDate(String customFieldName, ApplicationUser user, Project project, List<Version> versions, Date date) {
