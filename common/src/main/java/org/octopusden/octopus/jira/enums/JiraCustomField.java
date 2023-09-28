@@ -4,7 +4,7 @@ import org.octopusden.octopus.releng.dto.Language;
 
 import java.util.Objects;
 
-public enum CustomField {
+public enum JiraCustomField {
 
     HIGHLIGHT("Highlight"),
     RELEASE_HIGHLIGHTS("Release Highlights"),
@@ -50,12 +50,12 @@ public enum CustomField {
 
     private String name;
 
-    CustomField(String customFieldName) {
+    JiraCustomField(String customFieldName) {
         this.name = customFieldName;
     }
 
-    public static CustomField getByName(String fieldName) {
-        for (CustomField customField : CustomField.values()) {
+    public static JiraCustomField getByName(String fieldName) {
+        for (JiraCustomField customField : JiraCustomField.values()) {
             if (Objects.equals(customField.getName(), fieldName)) {
                 return customField;
             }

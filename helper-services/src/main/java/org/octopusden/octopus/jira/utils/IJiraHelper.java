@@ -9,7 +9,7 @@ import com.atlassian.jira.project.Project;
 import com.atlassian.jira.project.version.Version;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.query.Query;
-import org.octopusden.octopus.jira.enums.CustomField;
+import org.octopusden.octopus.jira.enums.JiraCustomField;
 import org.slf4j.Logger;
 
 import java.util.Collection;
@@ -26,7 +26,7 @@ public interface IJiraHelper {
 
     IssueType getAndValidateIssueTypeReleaseRequest();
 
-    Object getCustomFieldValue(Issue issue, CustomField customField);
+    Object getCustomFieldValue(Issue issue, JiraCustomField customField);
 
     FieldConfig getFieldConfig(com.atlassian.jira.issue.fields.CustomField customField, String projectKey);
 
