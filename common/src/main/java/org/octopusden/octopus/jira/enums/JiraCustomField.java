@@ -46,9 +46,11 @@ public enum JiraCustomField {
     TESTED_AGAINST_SSF_REQUIREMENTS("Tested against SSF requirements"),
     EFFECTIVE_DATE("Effective Date"),
     HOTFIX_TARGET_TYPE("Hotfix Target Type"),
-    SYSTEM("System");
+    SYSTEM("System"),
+    SPRINT("Sprint"),
+    CLEAR_SPRINT_ON_RESOLVE("Clear Sprint on Resolve");
 
-    private String name;
+    private final String name;
 
     JiraCustomField(String customFieldName) {
         this.name = customFieldName;
