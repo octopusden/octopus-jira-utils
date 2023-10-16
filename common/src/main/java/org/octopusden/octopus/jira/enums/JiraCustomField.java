@@ -48,7 +48,23 @@ public enum JiraCustomField {
     HOTFIX_TARGET_TYPE("Hotfix Target Type"),
     SYSTEM("System"),
     SPRINT("Sprint"),
-    CLEAR_SPRINT_ON_RESOLVE("Clear Sprint on Resolve");
+    CLEAR_SPRINT_ON_RESOLVE("Clear Sprint on Resolve"),
+    PDM("PDM"),
+    DEVELOPERS("Developers"),
+    APPLICATION_ARCHITECT("Application Architect"),
+    SYSTEM_ARCHITECT("System Architect"),
+    TESTERS("Testers"),
+    DELIVERY_CONSULTANTS("Delivery Consultants"),
+    TECHWRITERS("Techwriters"),
+    TRANSLATORS("Translators"),
+    NOTES_VERIFIERS("Notes Verifiers"),
+    ACADEMY("Academy"),
+    PRODUCT_MARKETING_MANAGER("Product Marketing Manager"),
+    PRINCIPAL_PDM("Principal PDM"),
+    TECH_LEAD("Tech Lead"),
+    TEST_LEAD("Test Lead"),
+    RELEASE_MANAGER("Release Manager");
+
 
     private final String name;
 
