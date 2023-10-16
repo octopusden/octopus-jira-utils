@@ -14,7 +14,8 @@ public enum IssueTypeEnum {
     ENHANCEMENT("Enhancement"),
     HOTFIX("Hotfix"),
     DOCUMENTATION("Documentation"),
-    EPIC("Epic");
+    EPIC("Epic"),
+    PRODUCT_CARD("Product Card");
 
 
 
