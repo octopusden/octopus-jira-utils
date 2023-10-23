@@ -15,11 +15,10 @@ public enum IssueTypeEnum {
     HOTFIX("Hotfix"),
     DOCUMENTATION("Documentation"),
     EPIC("Epic"),
-    PRODUCT_CARD("Product Card");
+    PRODUCT_CARD("Product Card"),
+    SPRINT("Sprint");
 
-
-
-    private String name;
+    private final String name;
 
     IssueTypeEnum(String issueTypeName) {
         this.name = issueTypeName;
