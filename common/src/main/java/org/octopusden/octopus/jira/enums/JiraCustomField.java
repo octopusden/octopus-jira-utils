@@ -63,30 +63,47 @@ public enum JiraCustomField {
     PRINCIPAL_PDM("Principal PDM"),
     TECH_LEAD("Tech Lead"),
     TEST_LEAD("Test Lead"),
-    RELEASE_MANAGER("Release Manager");
+    RELEASE_MANAGER("Release Manager"),
+    START_SPRINT("Start Sprint"),
+    END_SPRINT("End Sprint");
 
+    private final String fieldName;
 
-    private final String name;
-
-    JiraCustomField(String customFieldName) {
-        this.name = customFieldName;
+    JiraCustomField(String fieldName) {
+        this.fieldName = fieldName;
     }
 
     public static JiraCustomField getByName(String fieldName) {
         for (JiraCustomField customField : JiraCustomField.values()) {
-            if (Objects.equals(customField.getName(), fieldName)) {
+            if (Objects.equals(customField.getFieldName(), fieldName)) {
                 return customField;
             }
         }
         return null;
     }
 
+    /**
+     @deprecated use {@link #getFieldName(Language language)} instead
+     */
+    @Deprecated
     public String getName(Language language) {
-        String languageSuffix = Language.RU == language ? " (ru)" : "";
-        return name + languageSuffix;
+        return getFieldName(language);
     }
 
+    /**
+      @deprecated use {@link #getFieldName()} instead
+     */
+    @Deprecated
     public String getName() {
-        return getName(Language.EN);
+        return getFieldName();
+    }
+
+    public String getFieldName() {
+        return getFieldName(Language.EN);
+    }
+
+    public String getFieldName(Language language) {
+        String languageSuffix = Language.RU == language ? " (ru)" : "";
+        return fieldName + languageSuffix;
     }
 }
