@@ -65,7 +65,10 @@ public enum JiraCustomField {
     TEST_LEAD("Test Lead"),
     RELEASE_MANAGER("Release Manager"),
     START_SPRINT("Start Sprint"),
-    END_SPRINT("End Sprint");
+    END_SPRINT("End Sprint"),
+    SPRINT_DURATION("Sprint Duration"),
+    SPRINT_ID("Sprint ID"),
+    WEEK_NUMBERS("Week Numbers");
 
     private final String fieldName;
 
