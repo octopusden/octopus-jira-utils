@@ -6,4 +6,5 @@ data class Component(
     val componentOwner: String? = null,
     val releaseManager: String? = null,
     val distribution: Distribution? = null,
+    val releasesInDefaultBranch: Boolean?,
 )
