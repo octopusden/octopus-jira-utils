@@ -52,7 +52,8 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     private val jiraComponentVersionFormatter = createJiraComponentVersionFormatter()
 
-    private var fixedRemoteStatus: Any = "initial status"
+    @Volatile
+    private var fixedRemoteStatus: Any? = null
 
     private val allComponentsCache = cacheManager.getCache(CacheId.ALL_COMPONENTS.id()) { _: Unit ->
         client.getAllComponents().components.map { it.toModel() }
