@@ -4,7 +4,6 @@ import com.atlassian.cache.CacheManager
 import com.atlassian.jira.project.Project
 import com.atlassian.jira.project.version.Version
 import feign.FeignException
-import java.util.Date
 import java.util.Optional
 import java.util.SortedSet
 import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
@@ -41,6 +40,7 @@ import org.octopusden.releng.versions.VersionNames
 import org.slf4j.LoggerFactory
 import javax.inject.Inject
 import javax.inject.Named
+import org.octopusden.octopus.jira.model.UpdateCacheResult
 
 @Named
 class ComponentRegistryServiceImpl @Inject constructor(
@@ -52,7 +52,7 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     private val jiraComponentVersionFormatter = createJiraComponentVersionFormatter()
 
-    private var fixedRemoteDate: Date = Date(0L)
+    private var fixedRemoteStatus: Any = "initial status"
 
     private val allComponentsCache = cacheManager.getCache(CacheId.ALL_COMPONENTS.id()) { _: Unit ->
         client.getAllComponents().components.map { it.toModel() }
@@ -283,19 +283,20 @@ class ComponentRegistryServiceImpl @Inject constructor(
         return detailedComponentVersionsCache.get(DetailedComponentVersionsCacheRequest(component, versions.toSortedSet()))!!
     }
 
-    override fun checkCacheActualityAndClean(forceClean: Boolean) {
-        val remoteDate = client.getServiceStatus().cacheUpdatedAt
-        if (forceClean || this.fixedRemoteDate != remoteDate) {
-            log.info("Cleaning CR cache force=$forceClean $fixedRemoteDate != $remoteDate")
-            CacheId.values()
-                .forEach {
-                    cacheManager.getManagedCache(it.id())
-                        ?.clear()
-                }
-            this.fixedRemoteDate = remoteDate
+    override fun checkCacheActualityAndClean(forceClean: Boolean): UpdateCacheResult {
+        val serviceStatus = client.getServiceStatus()
+        val remoteStatus = serviceStatus.versionControlRevision ?: serviceStatus.cacheUpdatedAt
+
+        val fixedRemoteStatus = this.fixedRemoteStatus
+
+        val message = if (forceClean || fixedRemoteStatus != remoteStatus) {
+            CacheId.values().forEach { cacheId -> cacheManager.getManagedCache(cacheId.id())?.clear() }
+            this.fixedRemoteStatus = remoteStatus
+            "Cleaned CR cache"
         } else {
-            log.debug("Skip clean CR cache force=$forceClean fixedRemoteDate=$fixedRemoteDate  remoteDate=$remoteDate")
+            "Skip clean CR cache"
         }
+        return UpdateCacheResult("$message force='$forceClean', fixedRemoteStatus='$fixedRemoteStatus', remoteStatus='$remoteStatus'")
     }
 
     private fun <T> clearResponse(function: () -> T): T? {
