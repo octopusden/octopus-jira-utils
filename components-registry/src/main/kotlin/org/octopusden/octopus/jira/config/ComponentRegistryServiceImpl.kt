@@ -43,6 +43,7 @@ import javax.inject.Named
 import org.octopusden.octopus.jira.model.UpdateCacheResult
 
 @Named
+@Suppress("unused")
 class ComponentRegistryServiceImpl @Inject constructor(
         private val client: ComponentsRegistryServiceClient,
         private val cacheManager: CacheManager
@@ -340,7 +341,7 @@ class ComponentRegistryServiceImpl @Inject constructor(
     }
 
     private fun VcsRootDateDTO.toModel(): VcsRootLastChangeDate {
-        return VcsRootLastChangeDate(root.toModel(), date)
+        return VcsRootLastChangeDate(root.toModel())
     }
 
     private fun ComponentInfoDTO.toModel(): ComponentInfo {
