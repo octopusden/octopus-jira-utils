@@ -12,6 +12,7 @@ import org.octopusden.octopus.jira.model.VCSSettings
 import org.octopusden.octopus.releng.dto.ComponentVersion
 import org.octopusden.octopus.releng.dto.JiraComponentVersion
 import java.util.Optional
+import org.octopusden.octopus.jira.model.DetailedComponent
 import org.octopusden.octopus.jira.model.UpdateCacheResult
 import org.octopusden.octopus.releng.JiraComponentVersionFormatter
 import org.octopusden.releng.versions.VersionNames
@@ -61,4 +62,6 @@ interface ComponentRegistryService {
     fun getVersionNames(): VersionNames
 
     fun getComponentVersionFormatter(): JiraComponentVersionFormatter
+
+    fun getDetailedComponent(component: String, version: String): DetailedComponent
 }

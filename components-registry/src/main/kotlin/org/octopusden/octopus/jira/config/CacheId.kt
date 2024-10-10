@@ -27,7 +27,9 @@ enum class CacheId {
     IS_COMPONENT_EXISTS_BY_PROJECT_KEY,
 
     DETAILED_COMPONENT_VERSION,
-    DETAILED_COMPONENT_VERSIONS;
+    DETAILED_COMPONENT_VERSIONS,
+
+    DETAILED_COMPONENT;
 
     fun id(): String {
         return "ComponentRegistryService:$name"

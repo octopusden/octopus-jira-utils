@@ -6,6 +6,8 @@ import com.atlassian.jira.project.version.Version
 import feign.FeignException
 import java.util.Optional
 import java.util.SortedSet
+import javax.inject.Inject
+import javax.inject.Named
 import org.octopusden.octopus.components.registry.client.ComponentsRegistryServiceClient
 import org.octopusden.octopus.components.registry.core.dto.ComponentInfoDTO
 import org.octopusden.octopus.components.registry.core.dto.ComponentVersionFormatDTO
@@ -21,12 +23,14 @@ import org.octopusden.octopus.components.registry.core.dto.VersionRequest
 import org.octopusden.octopus.jira.exception.JiraApplicationException
 import org.octopusden.octopus.jira.model.Component
 import org.octopusden.octopus.jira.model.ComponentRegistryVersion
+import org.octopusden.octopus.jira.model.DetailedComponent
 import org.octopusden.octopus.jira.model.DetailedComponentVersion
 import org.octopusden.octopus.jira.model.DetailedComponentVersions
 import org.octopusden.octopus.jira.model.Distribution
 import org.octopusden.octopus.jira.model.JiraComponentVersionRange
 import org.octopusden.octopus.jira.model.JiraProjectVersion
 import org.octopusden.octopus.jira.model.RepositoryType
+import org.octopusden.octopus.jira.model.UpdateCacheResult
 import org.octopusden.octopus.jira.model.VCSSettings
 import org.octopusden.octopus.jira.model.VcsRootLastChangeDate
 import org.octopusden.octopus.jira.model.VersionControlSystemRoot
@@ -38,9 +42,6 @@ import org.octopusden.octopus.releng.dto.JiraComponentVersion
 import org.octopusden.releng.versions.ComponentVersionFormat
 import org.octopusden.releng.versions.VersionNames
 import org.slf4j.LoggerFactory
-import javax.inject.Inject
-import javax.inject.Named
-import org.octopusden.octopus.jira.model.UpdateCacheResult
 
 @Named
 @Suppress("unused")
@@ -146,10 +147,17 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     private data class DetailedComponentVersionsCacheRequest(val component: String, val versions: SortedSet<String>)
 
+    private data class DetailedComponentCacheRequest(val component: String, val version: String)
+
     private val detailedComponentVersionsCache = cacheManager.getCache(CacheId.DETAILED_COMPONENT_VERSIONS.id()) { req: DetailedComponentVersionsCacheRequest ->
         val versionRequest = VersionRequest(req.versions.toList())
         client.getDetailedComponentVersions(req.component, versionRequest)
                 .toModel()
+    }
+
+    private val detailedComponentCache = cacheManager.getCache(CacheId.DETAILED_COMPONENT.id()) { req: DetailedComponentCacheRequest ->
+        client.getDetailedComponent(req.component, req.version)
+            .toModel()
     }
 
     private val componentsDistributionByJiraProjectCache = cacheManager.getCache(CacheId.DISTRIBUTION_BY_PROJECT_KEY.id()) { projectKey: String ->
@@ -285,6 +293,9 @@ class ComponentRegistryServiceImpl @Inject constructor(
         return detailedComponentVersionsCache.get(DetailedComponentVersionsCacheRequest(component, versions.toSortedSet()))!!
     }
 
+    override fun getDetailedComponent(component: String, version: String): DetailedComponent
+    = detailedComponentCache.get(DetailedComponentCacheRequest(component, version))!!
+
     override fun checkCacheActualityAndClean(forceClean: Boolean): UpdateCacheResult {
         val serviceStatus = client.getServiceStatus()
         val remoteStatus = serviceStatus.versionControlRevision ?: serviceStatus.cacheUpdatedAt
@@ -292,7 +303,7 @@ class ComponentRegistryServiceImpl @Inject constructor(
         val fixedRemoteStatus = this.fixedRemoteStatus
 
         val message = if (forceClean || fixedRemoteStatus != remoteStatus) {
-            CacheId.values().forEach { cacheId -> cacheManager.getManagedCache(cacheId.id())?.clear() }
+            CacheId.entries.forEach { cacheId -> cacheManager.getManagedCache(cacheId.id())?.clear() }
             this.fixedRemoteStatus = remoteStatus
             "Cleaned CR cache"
         } else {
@@ -309,6 +320,10 @@ class ComponentRegistryServiceImpl @Inject constructor(
         } catch (e: Exception) {
             null
         }
+    }
+
+    private fun org.octopusden.octopus.components.registry.core.dto.DetailedComponent.toModel(): DetailedComponent {
+        return DetailedComponent(id, name, componentOwner,buildSystem, vcsSettings?.toModel(), jiraComponentVersion?.toModel(), detailedComponentVersion?.toModel())
     }
 
     private fun org.octopusden.octopus.components.registry.core.dto.Component.toModel(): Component {
