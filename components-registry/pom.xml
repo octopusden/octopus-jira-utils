@@ -12,7 +12,7 @@
     <artifactId>components-registry</artifactId>
 
     <properties>
-        <fuel.version>1.15.0</fuel.version>
+        <fuel.version>2.3.1</fuel.version>
     </properties>
 
     <dependencies>
@@ -54,7 +54,7 @@
         <dependency>
             <groupId>com.github.kittinunf.result</groupId>
             <artifactId>result</artifactId>
-            <version>1.1.0</version>
+            <version>5.6.0</version>
         </dependency>
 
         <dependency>
