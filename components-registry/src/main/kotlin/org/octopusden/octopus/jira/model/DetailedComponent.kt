@@ -7,8 +7,8 @@ data class DetailedComponent(
     val id: String,
     val name: String?,
     val componentOwner: String,
-    val buildSystem: BuildSystem?,
-    val vcsSettings: VCSSettings?,
-    val jiraComponentVersion: JiraComponentVersion?,
-    val detailedComponentVersion: DetailedComponentVersion?
+    val buildSystem: BuildSystem,
+    val vcsSettings: VCSSettings,
+    val jiraComponentVersion: JiraComponentVersion,
+    val detailedComponentVersion: DetailedComponentVersion
 )
