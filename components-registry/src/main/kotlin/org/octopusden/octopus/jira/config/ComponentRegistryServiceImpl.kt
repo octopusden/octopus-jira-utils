@@ -32,7 +32,7 @@ import org.octopusden.octopus.jira.model.JiraProjectVersion
 import org.octopusden.octopus.jira.model.RepositoryType
 import org.octopusden.octopus.jira.model.UpdateCacheResult
 import org.octopusden.octopus.jira.model.VCSSettings
-import org.octopusden.octopus.jira.model.VcsRootLastChangeDate
+import org.octopusden.octopus.jira.model.VcsRootWrapper
 import org.octopusden.octopus.jira.model.VersionControlSystemRoot
 import org.octopusden.octopus.releng.JiraComponentVersionFormatter
 import org.octopusden.octopus.releng.dto.ComponentInfo
@@ -355,8 +355,8 @@ class ComponentRegistryServiceImpl @Inject constructor(
         return VersionNames(serviceBranch, service, minor)
     }
 
-    private fun VcsRootDateDTO.toModel(): VcsRootLastChangeDate {
-        return VcsRootLastChangeDate(root.toModel())
+    private fun VcsRootDateDTO.toModel(): VcsRootWrapper {
+        return VcsRootWrapper(root.toModel())
     }
 
     private fun ComponentInfoDTO.toModel(): ComponentInfo {
