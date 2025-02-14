@@ -37,11 +37,12 @@
         <dependency>
             <groupId>com.atlassian.jira</groupId>
             <artifactId>jira-api</artifactId>
-        </dependency>
-        <dependency>     
-            <groupId>jta</groupId>
-            <artifactId>jta</artifactId>
-            <version>1.0.1b</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>jta</groupId>
+                    <artifactId>jta</artifactId>
+                </exclusion>
+            </exclusions>
             <scope>provided</scope>
         </dependency>
 
