@@ -150,9 +150,11 @@ class ComponentRegistryServiceImpl @Inject constructor(
     private data class DetailedComponentCacheRequest(val component: String, val version: String)
 
     private val detailedComponentVersionsCache = cacheManager.getCache(CacheId.DETAILED_COMPONENT_VERSIONS.id()) { req: DetailedComponentVersionsCacheRequest ->
-        val versionRequest = VersionRequest(req.versions.toList())
-        client.getDetailedComponentVersions(req.component, versionRequest)
-                .toModel()
+        DetailedComponentVersions(
+            req.versions.chunked(50) {
+                client.getDetailedComponentVersions(req.component, VersionRequest(it)).versions.mapValues { entry -> entry.value.toModel() }
+            }.fold(mutableMapOf()) { result, element -> result.apply { putAll(element) } }
+        )
     }
 
     private val detailedComponentCache = cacheManager.getCache(CacheId.DETAILED_COMPONENT.id()) { req: DetailedComponentCacheRequest ->
@@ -382,10 +384,6 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     private fun org.octopusden.octopus.components.registry.core.dto.ComponentRegistryVersion.toModel(): ComponentRegistryVersion {
         return ComponentRegistryVersion(version, jiraVersion)
-    }
-
-    private fun org.octopusden.octopus.components.registry.core.dto.DetailedComponentVersions.toModel(): DetailedComponentVersions {
-        return DetailedComponentVersions(versions.map { it.key to it.value.toModel() }.toMap())
     }
 
     companion object {
