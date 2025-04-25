@@ -379,7 +379,7 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     private fun org.octopusden.octopus.components.registry.core.dto.DetailedComponentVersion.toModel(): DetailedComponentVersion {
         return DetailedComponentVersion(component, lineVersion.toModel(), minorVersion.toModel(), buildVersion.toModel(),
-                rcVersion.toModel(), releaseVersion.toModel())
+                rcVersion.toModel(), releaseVersion.toModel(), hotfixVersion?.toModel())
     }
 
     private fun org.octopusden.octopus.components.registry.core.dto.ComponentRegistryVersion.toModel(): ComponentRegistryVersion {
