@@ -366,7 +366,7 @@ class ComponentRegistryServiceImpl @Inject constructor(
     }
 
     private fun ComponentVersionFormatDTO.toModel(): ComponentVersionFormat {
-        return ComponentVersionFormat.create(majorVersionFormat, releaseVersionFormat, buildVersionFormat, lineVersionFormat)
+        return ComponentVersionFormat.create(majorVersionFormat, releaseVersionFormat, buildVersionFormat, lineVersionFormat, null)
     }
 
     private fun DistributionDTO.toModel(): Distribution {
