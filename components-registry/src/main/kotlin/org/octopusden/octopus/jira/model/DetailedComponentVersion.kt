@@ -6,5 +6,6 @@ data class DetailedComponentVersion(
     val minorVersion: ComponentRegistryVersion,
     val buildVersion: ComponentRegistryVersion,
     val rcVersion: ComponentRegistryVersion,
-    val releaseVersion: ComponentRegistryVersion
+    val releaseVersion: ComponentRegistryVersion,
+    val hotfixVersion: ComponentRegistryVersion?,
 )
