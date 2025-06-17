@@ -325,11 +325,11 @@ class ComponentRegistryServiceImpl @Inject constructor(
     }
 
     private fun org.octopusden.octopus.components.registry.core.dto.DetailedComponent.toModel(): DetailedComponent {
-        return DetailedComponent(id, name, componentOwner,buildSystem, vcsSettings.toModel(), jiraComponentVersion.toModel(), detailedComponentVersion.toModel())
+        return DetailedComponent(id, system, clientCode, name, componentOwner,buildSystem, vcsSettings.toModel(), jiraComponentVersion.toModel(), detailedComponentVersion.toModel())
     }
 
     private fun org.octopusden.octopus.components.registry.core.dto.Component.toModel(): Component {
-        return Component(id, name, componentOwner, releaseManager, distribution?.toModel(), releasesInDefaultBranch)
+        return Component(id, system, clientCode, name, componentOwner, releaseManager, distribution?.toModel(), releasesInDefaultBranch)
     }
 
     private fun JiraComponentVersionDTO.toModel(): JiraComponentVersion =

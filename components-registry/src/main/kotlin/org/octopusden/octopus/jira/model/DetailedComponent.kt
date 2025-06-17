@@ -5,6 +5,8 @@ import org.octopusden.octopus.releng.dto.JiraComponentVersion
 
 data class DetailedComponent(
     val id: String,
+    val system: Set<String>,
+    val clientCode: String?,
     val name: String?,
     val componentOwner: String,
     val buildSystem: BuildSystem,
