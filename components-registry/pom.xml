@@ -10,6 +10,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>components-registry</artifactId>
+    <name>Octopus Jira Utils Library Components Registry</name>
 
     <properties>
         <fuel.version>2.3.1</fuel.version>
