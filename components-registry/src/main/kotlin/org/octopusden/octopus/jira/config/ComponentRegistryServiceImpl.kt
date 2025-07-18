@@ -333,7 +333,7 @@ class ComponentRegistryServiceImpl @Inject constructor(
     }
 
     private fun JiraComponentVersionDTO.toModel(): JiraComponentVersion =
-            JiraComponentVersion(ComponentVersion.create(name, version), component.toModel(), jiraComponentVersionFormatter)
+            JiraComponentVersion(ComponentVersion.create(name, version), component.toModel(), jiraComponentVersionFormatter, isHotfixEnabled)
 
     private fun JiraComponentDTO.toModel(): JiraComponent {
         return JiraComponent(projectKey, displayName, this.componentVersionFormat.toModel(), this.componentInfo.toModel(), technical)
