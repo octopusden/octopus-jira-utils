@@ -346,12 +346,13 @@ class ComponentRegistryServiceImpl @Inject constructor(
     }
 
     private fun JiraComponentVersionRangeDTO.toModel(): JiraComponentVersionRange {
+        val vcsSettingsModel = vcsSettings.toModel()
         return JiraComponentVersionRange(
             componentName,
             versionRange,
-            component.toModel(isHotfixEnabled(vcsSettings.toModel())),
+            component.toModel(isHotfixEnabled(vcsSettingsModel)),
             distribution.toModel(),
-            vcsSettings.toModel()
+            vcsSettingsModel
         )
     }
 
@@ -396,7 +397,7 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     private fun isHotfixEnabled(vcsSettings: VCSSettings): Boolean {
         return vcsSettings.versionControlSystemRoots.any { vcsRoot ->
-            vcsRoot.hotfixBranch != null
+            !vcsRoot.hotfixBranch.isNullOrEmpty()
         }
     }
 
