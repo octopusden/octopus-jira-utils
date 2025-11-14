@@ -332,24 +332,27 @@ class ComponentRegistryServiceImpl @Inject constructor(
         return Component(id, system, clientCode, name, componentOwner, releaseManager, distribution?.toModel(), releasesInDefaultBranch)
     }
 
-    private fun JiraComponentVersionDTO.toModel(): JiraComponentVersion =
-            JiraComponentVersion(ComponentVersion.create(name, version), component.toModel(), jiraComponentVersionFormatter)
+    private fun JiraComponentVersionDTO.toModel(): JiraComponentVersion {
+        val componentVersion = ComponentVersion.create(name, version)
+        return JiraComponentVersion(componentVersion, component.toModel(isHotfixEnabled(componentVersion)), jiraComponentVersionFormatter)
+    }
 
-    private fun JiraComponentDTO.toModel(): JiraComponent {
-        return JiraComponent(projectKey, displayName, this.componentVersionFormat.toModel(), this.componentInfo.toModel(), technical)
+    private fun JiraComponentDTO.toModel(isHotfixEnabled: Boolean): JiraComponent {
+        return JiraComponent(projectKey, displayName, this.componentVersionFormat.toModel(), this.componentInfo.toModel(), technical, isHotfixEnabled)
     }
 
     private fun VersionControlSystemRootDTO.toModel(): VersionControlSystemRoot {
-        return VersionControlSystemRoot(name, RepositoryType.valueOf(type.name), vcsPath, tag, branch)
+        return VersionControlSystemRoot(name, RepositoryType.valueOf(type.name), vcsPath, tag, branch, hotfixBranch)
     }
 
     private fun JiraComponentVersionRangeDTO.toModel(): JiraComponentVersionRange {
+        val vcsSettingsModel = vcsSettings.toModel()
         return JiraComponentVersionRange(
-                componentName,
-                versionRange,
-                component.toModel(),
-                distribution.toModel(),
-                vcsSettings.toModel()
+            componentName,
+            versionRange,
+            component.toModel(isHotfixEnabled(vcsSettingsModel)),
+            distribution.toModel(),
+            vcsSettingsModel
         )
     }
 
@@ -384,6 +387,18 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     private fun org.octopusden.octopus.components.registry.core.dto.ComponentRegistryVersion.toModel(): ComponentRegistryVersion {
         return ComponentRegistryVersion(version, jiraVersion)
+    }
+
+    private fun isHotfixEnabled(componentVersion: ComponentVersion): Boolean {
+        return getVCSSettings(componentVersion)
+            .map { vcsSettings -> isHotfixEnabled(vcsSettings) }
+            .orElse(false)
+    }
+
+    private fun isHotfixEnabled(vcsSettings: VCSSettings): Boolean {
+        return vcsSettings.versionControlSystemRoots.any { vcsRoot ->
+            !vcsRoot.hotfixBranch.isNullOrEmpty()
+        }
     }
 
     companion object {
