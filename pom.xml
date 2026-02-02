@@ -27,7 +27,7 @@
         <jackson.version>2.9.8</jackson.version>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <jira.version>8.5.1</jira.version>
+        <jira.version>8.23.0-QR-20220216045940</jira.version>
     </properties>
 
     <dependencyManagement>
