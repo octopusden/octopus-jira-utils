@@ -3,7 +3,6 @@ package org.octopusden.octopus.jira.config
 import com.atlassian.cache.Cache
 import com.atlassian.cache.CacheManager
 import com.atlassian.jira.project.Project
-import java.lang.management.ManagementFactory
 import com.atlassian.jira.project.version.Version
 import feign.FeignException
 import java.util.Optional
@@ -58,6 +57,52 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     @Volatile
     private var fixedRemoteStatus: Any? = null
+
+    /**
+     * Tracks loader activity so we can detect H4 — a loader call that started BEFORE
+     * [checkCacheActualityAndClean] ran `clear()`, then finished AFTER, silently
+     * re-inserting a stale value into the cache.
+     *
+     * - `inFlight` is incremented when a loader starts, decremented when it finishes.
+     * - `lastCleanAtNanos` is the timestamp of the most recent clear() invocation.
+     * - When a loader finishes, if it STARTED before `lastCleanAtNanos`, we log a
+     *   warning identifying the cache, the key, and the elapsed time. That entry is
+     *   the prime suspect for stale data in the cache.
+     */
+    private val loaderTracker = LoaderTracker()
+
+    private class LoaderTracker {
+        val inFlight = java.util.concurrent.atomic.AtomicInteger(0)
+        @Volatile var lastCleanAtNanos: Long = 0L
+
+        fun markCleaned() {
+            lastCleanAtNanos = System.nanoTime()
+        }
+
+        fun <K, V> wrap(cacheName: String, fn: (K) -> V): (K) -> V = { key ->
+            val startedAt = System.nanoTime()
+            inFlight.incrementAndGet()
+            try {
+                val value = fn(key)
+                val finishedAt = System.nanoTime()
+                val cleanAt = lastCleanAtNanos
+                // If a clean happened strictly between our start and our finish,
+                // our about-to-be-cached value may be stale and overwrites the clean.
+                if (cleanAt in (startedAt + 1)..finishedAt) {
+                    val elapsedMs = (finishedAt - startedAt) / 1_000_000
+                    log.warn(
+                        "POSSIBLE STALE REINSERT in cache '{}': loader for key='{}' started {}ms before clear() ran, " +
+                            "finishing now will overwrite the cleared entry with data fetched from the pre-clean state of CR. " +
+                            "elapsedMs={}, inFlightNow={}",
+                        cacheName, key, (cleanAt - startedAt) / 1_000_000, elapsedMs, inFlight.get()
+                    )
+                }
+                value
+            } finally {
+                inFlight.decrementAndGet()
+            }
+        }
+    }
 
     private val allComponentsCache = cacheManager.getCache(CacheId.ALL_COMPONENTS.id()) { _: Unit ->
         client.getAllComponents().components.map { it.toModel() }
@@ -151,18 +196,24 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     private data class DetailedComponentCacheRequest(val component: String, val version: String)
 
-    private val detailedComponentVersionsCache = cacheManager.getCache(CacheId.DETAILED_COMPONENT_VERSIONS.id()) { req: DetailedComponentVersionsCacheRequest ->
-        DetailedComponentVersions(
-            req.versions.chunked(50) {
-                client.getDetailedComponentVersions(req.component, VersionRequest(it)).versions.mapValues { entry -> entry.value.toModel() }
-            }.fold(mutableMapOf()) { result, element -> result.apply { putAll(element) } }
-        )
-    }
+    private val detailedComponentVersionsCache = cacheManager.getCache(
+        CacheId.DETAILED_COMPONENT_VERSIONS.id(),
+        loaderTracker.wrap<DetailedComponentVersionsCacheRequest, DetailedComponentVersions>(CacheId.DETAILED_COMPONENT_VERSIONS.id()) { req ->
+            DetailedComponentVersions(
+                req.versions.chunked(50) {
+                    client.getDetailedComponentVersions(req.component, VersionRequest(it)).versions.mapValues { entry -> entry.value.toModel() }
+                }.fold(mutableMapOf()) { result, element -> result.apply { putAll(element) } }
+            )
+        }
+    )
 
-    private val detailedComponentCache = cacheManager.getCache(CacheId.DETAILED_COMPONENT.id()) { req: DetailedComponentCacheRequest ->
-        client.getDetailedComponent(req.component, req.version)
-            .toModel()
-    }
+    private val detailedComponentCache = cacheManager.getCache(
+        CacheId.DETAILED_COMPONENT.id(),
+        loaderTracker.wrap<DetailedComponentCacheRequest, DetailedComponent>(CacheId.DETAILED_COMPONENT.id()) { req ->
+            client.getDetailedComponent(req.component, req.version)
+                .toModel()
+        }
+    )
 
     private val componentsDistributionByJiraProjectCache = cacheManager.getCache(CacheId.DISTRIBUTION_BY_PROJECT_KEY.id()) { projectKey: String ->
         clearResponse {
@@ -202,10 +253,13 @@ class ComponentRegistryServiceImpl @Inject constructor(
         } ?: emptySet()
     }
 
-    private val detailedComponentVersionCache = cacheManager.getCache(CacheId.DETAILED_COMPONENT_VERSION.id()) { componentVersion: ComponentVersion ->
-        client.getDetailedComponentVersion(componentVersion.componentName, componentVersion.version)
+    private val detailedComponentVersionCache = cacheManager.getCache(
+        CacheId.DETAILED_COMPONENT_VERSION.id(),
+        loaderTracker.wrap<ComponentVersion, DetailedComponentVersion>(CacheId.DETAILED_COMPONENT_VERSION.id()) { componentVersion ->
+            client.getDetailedComponentVersion(componentVersion.componentName, componentVersion.version)
                 .toModel()
-    }
+        }
+    )
 
     private fun createJiraComponentVersionFormatter(): JiraComponentVersionFormatter {
         return JiraComponentVersionFormatter(getVersionNames())
@@ -301,9 +355,10 @@ class ComponentRegistryServiceImpl @Inject constructor(
     = detailedComponentCache.get(DetailedComponentCacheRequest(component, version))!!
 
     /**
-     * Map of every CacheId to its in-process [Cache] reference.
-     * Used to double-clear caches via the direct reference (in case
-     * [CacheManager.getManagedCache] returns null for a given id, which silently no-ops today).
+     * Map of every [CacheId] to its in-process [Cache] reference.
+     * We clear via these direct references (not via [CacheManager.getManagedCache])
+     * because these are the exact instances the loader lambdas are bound to and that
+     * `get()` calls read from — so clearing them is guaranteed to take effect.
      */
     private val cachesById: Map<CacheId, Cache<*, *>> by lazy {
         mapOf(
@@ -332,112 +387,53 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     override fun checkCacheActualityAndClean(forceClean: Boolean): UpdateCacheResult {
         val serviceStatus = client.getServiceStatus()
-        val remoteStatusSource = if (serviceStatus.versionControlRevision != null) "versionControlRevision" else "cacheUpdatedAt"
         val remoteStatus = serviceStatus.versionControlRevision ?: serviceStatus.cacheUpdatedAt
 
         val previousFixedRemoteStatus = this.fixedRemoteStatus
-
         val needClean = forceClean || previousFixedRemoteStatus != remoteStatus
-        val identity = instanceIdentity()
 
         val message = if (needClean) {
-            val report = clearAllCachesWithDiagnostics()
+            val inFlightAtCleanStart = loaderTracker.inFlight.get()
+            val cleared = clearAllCaches()
+            // Stamp the clean time AFTER clear() runs, so any loader whose put() happens
+            // after this point and whose start was before this point gets flagged
+            // by LoaderTracker as a POSSIBLE STALE REINSERT.
+            loaderTracker.markCleaned()
             this.fixedRemoteStatus = remoteStatus
-            // Verify enum-vs-fields coverage so a forgotten cache is loud, not silent.
-            val uncovered = CacheId.entries.filterNot { cachesById.containsKey(it) }
-            if (uncovered.isNotEmpty()) {
-                log.warn("[$identity] CacheId entries NOT covered by direct cache references (will rely on getManagedCache only): $uncovered")
+            log.info("Cleaned CR cache: clearedCaches={}, loadersInFlightAtCleanStart={}", cleared, inFlightAtCleanStart)
+            if (inFlightAtCleanStart > 0) {
+                log.warn(
+                    "{} loader call(s) were in flight when clear() started. " +
+                        "Any that finish AFTER this point may re-insert stale data. " +
+                        "Watch for 'POSSIBLE STALE REINSERT' warnings.",
+                    inFlightAtCleanStart
+                )
             }
-            log.info(
-                "[$identity] Cleaned CR cache: cleared={}, missingManagedCache={}, errors={}, totalEntriesBefore={}, remoteStatusSource={}",
-                report.cleared, report.missingManaged, report.errors, report.totalEntriesBefore, remoteStatusSource
-            )
             "Cleaned CR cache"
         } else {
             "Skip clean CR cache"
         }
         return UpdateCacheResult(
-            "$message force='$forceClean', fixedRemoteStatus='$previousFixedRemoteStatus', " +
-                "remoteStatus='$remoteStatus', remoteStatusSource='$remoteStatusSource', node='$identity'"
+            "$message force='$forceClean', fixedRemoteStatus='$previousFixedRemoteStatus', remoteStatus='$remoteStatus'"
         )
     }
 
-    private data class ClearReport(
-        val cleared: List<String>,
-        val missingManaged: List<String>,
-        val errors: Map<String, String>,
-        val totalEntriesBefore: Long
-    )
-
-    private fun clearAllCachesWithDiagnostics(): ClearReport {
-        val identity = instanceIdentity()
-        val cleared = mutableListOf<String>()
-        val missingManaged = mutableListOf<String>()
-        val errors = mutableMapOf<String, String>()
-        var totalEntriesBefore = 0L
-
-        for (cacheId in CacheId.entries) {
-            val name = cacheId.id()
-            var sizeBefore: Long
-            val managed = try {
-                cacheManager.getManagedCache(name)
-            } catch (e: Exception) {
-                errors["$name#getManagedCache"] = e.javaClass.simpleName + ":" + e.message
-                null
-            }
-
-            if (managed == null) {
-                missingManaged += name
-                log.warn("[$identity] cache '$name' getManagedCache returned null — relying on direct reference clear only")
-            } else {
-                sizeBefore = try {
-                    managed.statistics[com.atlassian.cache.CacheStatisticsKey.SIZE]?.get() ?: -1
-                } catch (e: Throwable) {
-                    -1
-                }
-                if (sizeBefore >= 0) totalEntriesBefore += sizeBefore
-                try {
-                    managed.clear()
-                    log.info("[$identity] cleared managed cache '$name' (sizeBefore={})", sizeBefore)
-                } catch (e: Exception) {
-                    errors["$name#managed.clear"] = e.javaClass.simpleName + ":" + e.message
-                    log.warn("[$identity] managed.clear() failed for '$name': ${e.message}", e)
-                }
-            }
-
-            // Belt and suspenders: also clear via the direct in-process reference.
-            // This protects against H2 (managed lookup returning null) and ensures
-            // we are hitting the same Cache instance the field-bound loader uses.
-            val direct = cachesById[cacheId]
-            if (direct == null) {
-                errors["$name#directRef"] = "no direct reference registered"
-            } else {
-                try {
-                    direct.removeAll()
-                    cleared += name
-                } catch (e: Exception) {
-                    errors["$name#direct.removeAll"] = e.javaClass.simpleName + ":" + e.message
-                    log.warn("[$identity] direct removeAll() failed for '$name': ${e.message}", e)
-                }
-            }
-        }
-        return ClearReport(cleared, missingManaged, errors, totalEntriesBefore)
-    }
-
     /**
-     * Best-effort identity string for log correlation in a clustered (Data Center) deployment.
-     * Includes:
-     *  - JVM runtime name (typically `pid@host`) — distinguishes Jira nodes.
-     *  - identityHashCode of this service instance — distinguishes multiple instances
-     *    in the same JVM (e.g. when the library is shaded into more than one plugin).
+     * Clears every cache via its direct in-process [Cache] reference (the same instance
+     * bound to the loader lambda), so we are guaranteed to be hitting the map that
+     * subsequent `get()` calls will read from. Returns the list of cleared cache ids.
      */
-    private fun instanceIdentity(): String {
-        val jvm = try {
-            ManagementFactory.getRuntimeMXBean().name
-        } catch (_: Throwable) {
-            "unknown-jvm"
+    private fun clearAllCaches(): List<String> {
+        val cleared = mutableListOf<String>()
+        for ((cacheId, cache) in cachesById) {
+            try {
+                cache.removeAll()
+                cleared += cacheId.id()
+            } catch (e: Exception) {
+                log.warn("removeAll() failed for cache '${cacheId.id()}': ${e.message}", e)
+            }
         }
-        return "jvm=$jvm,svc=${Integer.toHexString(System.identityHashCode(this))}"
+        return cleared
     }
 
     private fun <T> clearResponse(function: () -> T): T? {
