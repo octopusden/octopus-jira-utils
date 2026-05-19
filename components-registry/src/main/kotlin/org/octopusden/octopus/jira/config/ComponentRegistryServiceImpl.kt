@@ -1,7 +1,9 @@
 package org.octopusden.octopus.jira.config
 
+import com.atlassian.cache.Cache
 import com.atlassian.cache.CacheManager
 import com.atlassian.jira.project.Project
+import java.lang.management.ManagementFactory
 import com.atlassian.jira.project.version.Version
 import feign.FeignException
 import java.util.Optional
@@ -298,20 +300,144 @@ class ComponentRegistryServiceImpl @Inject constructor(
     override fun getDetailedComponent(component: String, version: String): DetailedComponent
     = detailedComponentCache.get(DetailedComponentCacheRequest(component, version))!!
 
+    /**
+     * Map of every CacheId to its in-process [Cache] reference.
+     * Used to double-clear caches via the direct reference (in case
+     * [CacheManager.getManagedCache] returns null for a given id, which silently no-ops today).
+     */
+    private val cachesById: Map<CacheId, Cache<*, *>> by lazy {
+        mapOf(
+            CacheId.ALL_COMPONENTS to allComponentsCache,
+            CacheId.COMPONENT to componentsCache,
+            CacheId.IS_VERSION_MINOR to isMinorVersionCache,
+            CacheId.MINOR_VERSION_BY_VERSION to minorVersionByVersionCache,
+            CacheId.MINOR_VERSION_BY_VERSION_NAME_AND_PROJECT to minorVersionByVersionNameAndProjectCache,
+            CacheId.JIRA_COMPONENT_BY_PROJECT_VERSION to jiraComponentByProjectAndVersion,
+            CacheId.JIRA_COMPONENTS_BY_PROJECT_KEY to jiraComponentsByProjectCache,
+            CacheId.JIRA_COMPONENT_VERSION_RANGES_BY_PROJECT_KEY to jiraComponentVersionRangesByProjectCache,
+            CacheId.DISTRIBUTION_BY_JIRA_PROJECT_VERSION to distributionCacheByJiraProjectVersion,
+            CacheId.DISTRIBUTION_BY_COMPONENT_VERSION to distributionByComponentVersionCache,
+            CacheId.VCS_SETTINGS_BY_JIRA_PROJECT_VERSION to vcsSettingsByJiraProjectVersionCache,
+            CacheId.VCS_SETTINGS_BY_COMPONENT_VERSION to vcsSettingsByComponentVersionCache,
+            CacheId.DETAILED_COMPONENT_VERSIONS to detailedComponentVersionsCache,
+            CacheId.DETAILED_COMPONENT to detailedComponentCache,
+            CacheId.DISTRIBUTION_BY_PROJECT_KEY to componentsDistributionByJiraProjectCache,
+            CacheId.IS_COMPONENT_EXISTS_BY_PROJECT_VERSION to componentExistsByJiraProjectVersionCache,
+            CacheId.IS_COMPONENT_EXISTS_BY_PROJECT_KEY to componentExistsByJiraProjectCache,
+            CacheId.JIRA_COMPONENT_BY_COMPONENT_VERSION to jiraComponentByComponentNameAndVersionCache,
+            CacheId.ALL_JIRA_COMPONENT_VERSION_RANGES to allJiraComponentVersionRangesCache,
+            CacheId.DETAILED_COMPONENT_VERSION to detailedComponentVersionCache
+        )
+    }
+
     override fun checkCacheActualityAndClean(forceClean: Boolean): UpdateCacheResult {
         val serviceStatus = client.getServiceStatus()
+        val remoteStatusSource = if (serviceStatus.versionControlRevision != null) "versionControlRevision" else "cacheUpdatedAt"
         val remoteStatus = serviceStatus.versionControlRevision ?: serviceStatus.cacheUpdatedAt
 
-        val fixedRemoteStatus = this.fixedRemoteStatus
+        val previousFixedRemoteStatus = this.fixedRemoteStatus
 
-        val message = if (forceClean || fixedRemoteStatus != remoteStatus) {
-            CacheId.entries.forEach { cacheId -> cacheManager.getManagedCache(cacheId.id())?.clear() }
+        val needClean = forceClean || previousFixedRemoteStatus != remoteStatus
+        val identity = instanceIdentity()
+
+        val message = if (needClean) {
+            val report = clearAllCachesWithDiagnostics()
             this.fixedRemoteStatus = remoteStatus
+            // Verify enum-vs-fields coverage so a forgotten cache is loud, not silent.
+            val uncovered = CacheId.entries.filterNot { cachesById.containsKey(it) }
+            if (uncovered.isNotEmpty()) {
+                log.warn("[$identity] CacheId entries NOT covered by direct cache references (will rely on getManagedCache only): $uncovered")
+            }
+            log.info(
+                "[$identity] Cleaned CR cache: cleared={}, missingManagedCache={}, errors={}, totalEntriesBefore={}, remoteStatusSource={}",
+                report.cleared, report.missingManaged, report.errors, report.totalEntriesBefore, remoteStatusSource
+            )
             "Cleaned CR cache"
         } else {
             "Skip clean CR cache"
         }
-        return UpdateCacheResult("$message force='$forceClean', fixedRemoteStatus='$fixedRemoteStatus', remoteStatus='$remoteStatus'")
+        return UpdateCacheResult(
+            "$message force='$forceClean', fixedRemoteStatus='$previousFixedRemoteStatus', " +
+                "remoteStatus='$remoteStatus', remoteStatusSource='$remoteStatusSource', node='$identity'"
+        )
+    }
+
+    private data class ClearReport(
+        val cleared: List<String>,
+        val missingManaged: List<String>,
+        val errors: Map<String, String>,
+        val totalEntriesBefore: Long
+    )
+
+    private fun clearAllCachesWithDiagnostics(): ClearReport {
+        val identity = instanceIdentity()
+        val cleared = mutableListOf<String>()
+        val missingManaged = mutableListOf<String>()
+        val errors = mutableMapOf<String, String>()
+        var totalEntriesBefore = 0L
+
+        for (cacheId in CacheId.entries) {
+            val name = cacheId.id()
+            var sizeBefore: Long
+            val managed = try {
+                cacheManager.getManagedCache(name)
+            } catch (e: Exception) {
+                errors["$name#getManagedCache"] = e.javaClass.simpleName + ":" + e.message
+                null
+            }
+
+            if (managed == null) {
+                missingManaged += name
+                log.warn("[$identity] cache '$name' getManagedCache returned null — relying on direct reference clear only")
+            } else {
+                sizeBefore = try {
+                    managed.statistics[com.atlassian.cache.CacheStatisticsKey.SIZE]?.get() ?: -1
+                } catch (e: Throwable) {
+                    -1
+                }
+                if (sizeBefore >= 0) totalEntriesBefore += sizeBefore
+                try {
+                    managed.clear()
+                    log.info("[$identity] cleared managed cache '$name' (sizeBefore={})", sizeBefore)
+                } catch (e: Exception) {
+                    errors["$name#managed.clear"] = e.javaClass.simpleName + ":" + e.message
+                    log.warn("[$identity] managed.clear() failed for '$name': ${e.message}", e)
+                }
+            }
+
+            // Belt and suspenders: also clear via the direct in-process reference.
+            // This protects against H2 (managed lookup returning null) and ensures
+            // we are hitting the same Cache instance the field-bound loader uses.
+            val direct = cachesById[cacheId]
+            if (direct == null) {
+                errors["$name#directRef"] = "no direct reference registered"
+            } else {
+                try {
+                    direct.removeAll()
+                    cleared += name
+                } catch (e: Exception) {
+                    errors["$name#direct.removeAll"] = e.javaClass.simpleName + ":" + e.message
+                    log.warn("[$identity] direct removeAll() failed for '$name': ${e.message}", e)
+                }
+            }
+        }
+        return ClearReport(cleared, missingManaged, errors, totalEntriesBefore)
+    }
+
+    /**
+     * Best-effort identity string for log correlation in a clustered (Data Center) deployment.
+     * Includes:
+     *  - JVM runtime name (typically `pid@host`) — distinguishes Jira nodes.
+     *  - identityHashCode of this service instance — distinguishes multiple instances
+     *    in the same JVM (e.g. when the library is shaded into more than one plugin).
+     */
+    private fun instanceIdentity(): String {
+        val jvm = try {
+            ManagementFactory.getRuntimeMXBean().name
+        } catch (_: Throwable) {
+            "unknown-jvm"
+        }
+        return "jvm=$jvm,svc=${Integer.toHexString(System.identityHashCode(this))}"
     }
 
     private fun <T> clearResponse(function: () -> T): T? {
