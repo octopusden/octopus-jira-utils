@@ -310,20 +310,37 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
         val message = if (needClean) {
             val inFlightAtCleanStart = loaderTracker.inFlight.get()
-            clearAllCaches()
-            loaderTracker.markCleaned()
-            this.fixedRemoteStatus = remoteStatus
 
-            log.info("Cleaned CR cache: loadersInFlightAtCleanStart={}", inFlightAtCleanStart)
+            val failedCaches = clearAllCaches()
+
+            // Only advance fixedRemoteStatus when every cache was actually cleared.
+            // If any clear failed, leave the status unchanged so the next tick retries
+            // for the same remote state — otherwise that cache could keep serving stale
+            // data until the next upstream change or a forceClean.
+            if (failedCaches.isEmpty()) {
+                this.fixedRemoteStatus = remoteStatus
+            } else {
+                log.warn(
+                    "CR cache clean was PARTIAL: {} cache(s) failed to clear: {}. " +
+                        "fixedRemoteStatus left unchanged so the next tick will retry.",
+                    failedCaches.size, failedCaches
+                )
+            }
+
+            log.info(
+                "Cleaned CR cache: inFlightAtCleanStart={}, failedCaches={}",
+                inFlightAtCleanStart, failedCaches
+            )
             if (inFlightAtCleanStart > 0) {
                 log.warn(
-                    "{} loader call(s) were in flight when clear() started. " +
-                        "Any that finish AFTER this point may re-insert stale data. " +
-                        "Watch for 'POSSIBLE STALE REINSERT' warnings.",
+                    "{} loader call(s) were observed in flight just before clean started " +
+                        "(sampled, not a fence — actual overlap may be higher or lower). " +
+                        "Watch for 'POSSIBLE STALE REINSERT' warnings for authoritative race evidence.",
                     inFlightAtCleanStart
                 )
             }
-            "Cleaned CR cache"
+
+            if (failedCaches.isEmpty()) "Cleaned CR cache" else "Partially cleaned CR cache"
         } else {
             "Skip clean CR cache"
         }
@@ -374,15 +391,22 @@ class ComponentRegistryServiceImpl @Inject constructor(
      * Clears every cache via its direct in-process [Cache] reference (the same instance
      * bound to the loader lambda), so we are guaranteed to be hitting the map that
      * subsequent `get()` calls will read from.
+     *
+     * @return list of cache ids whose `removeAll()` threw. Empty list = full success.
      */
-    private fun clearAllCaches() {
+    private fun clearAllCaches(): List<String> {
+        val failed = mutableListOf<String>()
         for ((cacheId, cache) in cachesById) {
+            val name = cacheId.id()
             try {
                 cache.removeAll()
+                loaderTracker.markCleaned(name)
             } catch (e: Exception) {
-                log.warn("removeAll() failed for cache '${cacheId.id()}': ${e.message}", e)
+                failed += name
+                log.warn("removeAll() failed for cache '$name': ${e.message}", e)
             }
         }
+        return failed
     }
 
 

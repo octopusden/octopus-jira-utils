@@ -2,39 +2,46 @@ package org.octopusden.octopus.jira.config
 
 import com.atlassian.cache.Cache
 import com.atlassian.cache.CacheManager
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import org.slf4j.LoggerFactory
 
 /**
  * Detects a race between cache-loader calls and `clear()`:
- *  - a loader call starts BEFORE `clear()` runs,
- *  - the loader's remote call finishes AFTER `clear()`,
+ *  - a loader call starts BEFORE its cache's `clear()` runs,
+ *  - the loader's remote call finishes AFTER that `clear()`,
  *  - so the loader silently re-inserts a value that was fetched against the
  *    pre-clean state of the remote service, overwriting the just-cleared entry
  *    with stale data. The cache then serves that stale value until the next clear.
  *
+ * Clean timestamps are tracked **per cache**: a loader for cache A is only
+ * flagged when cache A itself was cleared during the loader's window. This
+ * avoids cross-cache false positives when multiple caches are cleared one by one.
+ *
  * Usage:
  *  1. Hold a single [LoaderTracker] instance per service.
  *  2. Wrap every loader lambda with [wrap] (or use [CacheManager.trackedCache]).
- *  3. Right after your `clear()` call, invoke [markCleaned].
+ *  3. Immediately after each `cache.removeAll()` call, invoke [markCleaned] with
+ *     the same cache name passed to [wrap]. Do this per cache, right after the
+ *     clear succeeds — not once at the end of a multi-cache sweep — so loaders
+ *     that finish mid-sweep are evaluated against an accurate timestamp.
  *  4. When the race occurs, a `POSSIBLE STALE REINSERT` WARN is emitted naming
  *     the cache and the exact key that is now stale.
  *
  * Overhead: ~100–200 ns per cache miss (two `System.nanoTime()`, one atomic inc/dec,
- * one volatile read). Zero overhead on cache hits. Constant memory.
+ * one map read). Zero overhead on cache hits. Constant memory (one map entry per cache).
  */
 class LoaderTracker {
 
     val inFlight: AtomicInteger = AtomicInteger(0)
 
-    @Volatile
-    var lastCleanAtNanos: Long = 0L
-        private set
+    private val lastCleanAtNanosByCache: ConcurrentHashMap<String, Long> = ConcurrentHashMap()
 
-    /** Call right after `clear()` so subsequent loader completions can be flagged. */
-    fun markCleaned() {
-        lastCleanAtNanos = System.nanoTime()
+    fun markCleaned(cacheName: String) {
+        lastCleanAtNanosByCache[cacheName] = System.nanoTime()
     }
+
+    fun lastCleanAtNanos(cacheName: String): Long = lastCleanAtNanosByCache[cacheName] ?: 0L
 
     /** Wraps a cache-loader lambda with start/finish bookkeeping and race detection. */
     fun <K, V> wrap(cacheName: String, fn: (K) -> V): (K) -> V = { key ->
@@ -43,8 +50,8 @@ class LoaderTracker {
         try {
             val value = fn(key)
             val finishedAt = System.nanoTime()
-            val cleanAt = lastCleanAtNanos
-            // If a clean happened strictly between our start and our finish,
+            val cleanAt = lastCleanAtNanos(cacheName)
+            // If current cache was cleared strictly between our start and our finish,
             // our about-to-be-cached value may be stale and would overwrite the clean.
             if (cleanAt in (startedAt + 1)..finishedAt) {
                 log.warn(
