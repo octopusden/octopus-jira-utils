@@ -58,11 +58,6 @@ class ComponentRegistryServiceImpl @Inject constructor(
     @Volatile
     private var fixedRemoteStatus: Any? = null
 
-    /**
-     * Tracks loader activity so we can detect H4 — a loader call that started BEFORE
-     * [checkCacheActualityAndClean] ran `clear()`, then finished AFTER, silently
-     * re-inserting a stale value into the cache. See [LoaderTracker].
-     */
     private val loaderTracker = LoaderTracker()
 
     private val allComponentsCache = cacheManager.trackedCache(CacheId.ALL_COMPONENTS, loaderTracker) { _: Unit ->
@@ -95,13 +90,13 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     private val minorVersionByVersionNameAndProjectCache = cacheManager.trackedCache(CacheId.MINOR_VERSION_BY_VERSION_NAME_AND_PROJECT, loaderTracker) { req: MinorVersionCacheReq ->
         getJiraComponentByProjectAndVersion(JiraProjectVersion(req.project.key, req.versionName))
-            .map { jcv -> jiraComponentVersionFormatter.formatMajorVersionFormat(jcv.component, req.versionName) }
+                .map { jcv -> jiraComponentVersionFormatter.formatMajorVersionFormat(jcv.component, req.versionName) }
     }
 
     private val jiraComponentByProjectAndVersion = cacheManager.trackedCache(CacheId.JIRA_COMPONENT_BY_PROJECT_VERSION, loaderTracker) { jiraProjectVersion: JiraProjectVersion ->
         val jiraComponentVersion = clearResponse {
             client.getJiraComponentByProjectAndVersion(jiraProjectVersion.projectKey, jiraProjectVersion.version)
-                .toModel()
+                    .toModel()
         }
         Optional.ofNullable(jiraComponentVersion)
     }
@@ -115,15 +110,15 @@ class ComponentRegistryServiceImpl @Inject constructor(
     private val jiraComponentVersionRangesByProjectCache = cacheManager.trackedCache(CacheId.JIRA_COMPONENT_VERSION_RANGES_BY_PROJECT_KEY, loaderTracker) { projectKey: String ->
         clearResponse {
             client.getJiraComponentVersionRangesByProject(projectKey)
-                .map { it.toModel() }
-                .toSet()
+                    .map { it.toModel() }
+                    .toSet()
         } ?: emptySet()
     }
 
     private val distributionCacheByJiraProjectVersion = cacheManager.trackedCache(CacheId.DISTRIBUTION_BY_JIRA_PROJECT_VERSION, loaderTracker) { jiraProjectVersion: JiraProjectVersion ->
         val distribution = clearResponse {
             client.getDistributionForProject(jiraProjectVersion.projectKey, jiraProjectVersion.version)
-                .toModel()
+                    .toModel()
         }
         Optional.ofNullable(distribution)
     }
@@ -131,7 +126,7 @@ class ComponentRegistryServiceImpl @Inject constructor(
     private val distributionByComponentVersionCache = cacheManager.trackedCache(CacheId.DISTRIBUTION_BY_COMPONENT_VERSION, loaderTracker) { componentVersion: ComponentVersion ->
         val distribution = clearResponse {
             client.getComponentDistribution(componentVersion.componentName, componentVersion.version)
-                .toModel()
+                    .toModel()
         }
         Optional.ofNullable(distribution)
     }
@@ -139,7 +134,7 @@ class ComponentRegistryServiceImpl @Inject constructor(
     private val vcsSettingsByJiraProjectVersionCache = cacheManager.trackedCache(CacheId.VCS_SETTINGS_BY_JIRA_PROJECT_VERSION, loaderTracker) { jiraProjectVersion: JiraProjectVersion ->
         val vcsSettings = clearResponse {
             client.getVCSSettingForProject(jiraProjectVersion.projectKey, jiraProjectVersion.version)
-                .toModel()
+                    .toModel()
         }
         Optional.ofNullable(vcsSettings)
     }
@@ -147,7 +142,8 @@ class ComponentRegistryServiceImpl @Inject constructor(
     private val vcsSettingsByComponentVersionCache = cacheManager.trackedCache(CacheId.VCS_SETTINGS_BY_COMPONENT_VERSION, loaderTracker) { componentVersion: ComponentVersion ->
         val vcsSettings = clearResponse {
             client.getVCSSetting(componentVersion.componentName, componentVersion.version)
-                .toModel()
+                    .toModel()
+
         }
         Optional.ofNullable(vcsSettings)
     }
@@ -172,8 +168,8 @@ class ComponentRegistryServiceImpl @Inject constructor(
     private val componentsDistributionByJiraProjectCache = cacheManager.trackedCache(CacheId.DISTRIBUTION_BY_PROJECT_KEY, loaderTracker) { projectKey: String ->
         clearResponse {
             client.getComponentsDistributionByJiraProject(projectKey)
-                .map { it.key to it.value.toModel() }
-                .toMap()
+                    .map { it.key to it.value.toModel() }
+                    .toMap()
         } ?: emptyMap()
     }
 
@@ -187,14 +183,14 @@ class ComponentRegistryServiceImpl @Inject constructor(
     private val componentExistsByJiraProjectCache = cacheManager.trackedCache(CacheId.IS_COMPONENT_EXISTS_BY_PROJECT_KEY, loaderTracker) { projectKey: String ->
         clearResponse {
             client.getJiraComponentsByProject(projectKey)
-                .isNotEmpty()
+                    .isNotEmpty()
         } ?: false
     }
 
     private val jiraComponentByComponentNameAndVersionCache = cacheManager.trackedCache(CacheId.JIRA_COMPONENT_BY_COMPONENT_VERSION, loaderTracker) { componentVersion: ComponentVersion ->
         val jiraComponentVersion = clearResponse {
             client.getJiraComponentForComponentAndVersion(componentVersion.componentName, componentVersion.version)
-                .toModel()
+                    .toModel()
         }
         Optional.ofNullable(jiraComponentVersion)
     }
@@ -202,14 +198,14 @@ class ComponentRegistryServiceImpl @Inject constructor(
     private val allJiraComponentVersionRangesCache = cacheManager.trackedCache(CacheId.ALL_JIRA_COMPONENT_VERSION_RANGES, loaderTracker) { _: Unit ->
         clearResponse {
             client.getAllJiraComponentVersionRanges()
-                .map { it.toModel() }
-                .toSet()
+                    .map { it.toModel() }
+                    .toSet()
         } ?: emptySet()
     }
 
     private val detailedComponentVersionCache = cacheManager.trackedCache(CacheId.DETAILED_COMPONENT_VERSION, loaderTracker) { componentVersion: ComponentVersion ->
         client.getDetailedComponentVersion(componentVersion.componentName, componentVersion.version)
-            .toModel()
+                .toModel()
     }
 
     private fun createJiraComponentVersionFormatter(): JiraComponentVersionFormatter {
@@ -305,37 +301,6 @@ class ComponentRegistryServiceImpl @Inject constructor(
     override fun getDetailedComponent(component: String, version: String): DetailedComponent
     = detailedComponentCache.get(DetailedComponentCacheRequest(component, version))!!
 
-    /**
-     * Map of every [CacheId] to its in-process [Cache] reference.
-     * We clear via these direct references (not via [CacheManager.getManagedCache])
-     * because these are the exact instances the loader lambdas are bound to and that
-     * `get()` calls read from — so clearing them is guaranteed to take effect.
-     */
-    private val cachesById: Map<CacheId, Cache<*, *>> by lazy {
-        mapOf(
-            CacheId.ALL_COMPONENTS to allComponentsCache,
-            CacheId.COMPONENT to componentsCache,
-            CacheId.IS_VERSION_MINOR to isMinorVersionCache,
-            CacheId.MINOR_VERSION_BY_VERSION to minorVersionByVersionCache,
-            CacheId.MINOR_VERSION_BY_VERSION_NAME_AND_PROJECT to minorVersionByVersionNameAndProjectCache,
-            CacheId.JIRA_COMPONENT_BY_PROJECT_VERSION to jiraComponentByProjectAndVersion,
-            CacheId.JIRA_COMPONENTS_BY_PROJECT_KEY to jiraComponentsByProjectCache,
-            CacheId.JIRA_COMPONENT_VERSION_RANGES_BY_PROJECT_KEY to jiraComponentVersionRangesByProjectCache,
-            CacheId.DISTRIBUTION_BY_JIRA_PROJECT_VERSION to distributionCacheByJiraProjectVersion,
-            CacheId.DISTRIBUTION_BY_COMPONENT_VERSION to distributionByComponentVersionCache,
-            CacheId.VCS_SETTINGS_BY_JIRA_PROJECT_VERSION to vcsSettingsByJiraProjectVersionCache,
-            CacheId.VCS_SETTINGS_BY_COMPONENT_VERSION to vcsSettingsByComponentVersionCache,
-            CacheId.DETAILED_COMPONENT_VERSIONS to detailedComponentVersionsCache,
-            CacheId.DETAILED_COMPONENT to detailedComponentCache,
-            CacheId.DISTRIBUTION_BY_PROJECT_KEY to componentsDistributionByJiraProjectCache,
-            CacheId.IS_COMPONENT_EXISTS_BY_PROJECT_VERSION to componentExistsByJiraProjectVersionCache,
-            CacheId.IS_COMPONENT_EXISTS_BY_PROJECT_KEY to componentExistsByJiraProjectCache,
-            CacheId.JIRA_COMPONENT_BY_COMPONENT_VERSION to jiraComponentByComponentNameAndVersionCache,
-            CacheId.ALL_JIRA_COMPONENT_VERSION_RANGES to allJiraComponentVersionRangesCache,
-            CacheId.DETAILED_COMPONENT_VERSION to detailedComponentVersionCache
-        )
-    }
-
     override fun checkCacheActualityAndClean(forceClean: Boolean): UpdateCacheResult {
         val serviceStatus = client.getServiceStatus()
         val remoteStatus = serviceStatus.versionControlRevision ?: serviceStatus.cacheUpdatedAt
@@ -367,6 +332,44 @@ class ComponentRegistryServiceImpl @Inject constructor(
         }
         return UpdateCacheResult(
             "$message force='$forceClean', fixedRemoteStatus='$previousFixedRemoteStatus', remoteStatus='$remoteStatus'"
+        )
+    }
+
+    /**
+     * Map of every [CacheId] to its in-process [Cache] reference.
+     * We clear via these direct references (not via [CacheManager.getManagedCache])
+     * because these are the exact instances the loader lambdas are bound to and that
+     * `get()` calls read from — so clearing them is guaranteed to take effect.
+     */
+    private val cachesById: Map<CacheId, Cache<*, *>> by lazy {
+        mapOf(
+            CacheId.ALL_COMPONENTS to allComponentsCache,
+            CacheId.COMPONENT to componentsCache,
+            CacheId.ALL_JIRA_COMPONENT_VERSION_RANGES to allJiraComponentVersionRangesCache,
+            CacheId.JIRA_COMPONENT_VERSION_RANGES_BY_PROJECT_KEY to jiraComponentVersionRangesByProjectCache,
+
+            CacheId.IS_VERSION_MINOR to isMinorVersionCache,
+            CacheId.MINOR_VERSION_BY_VERSION to minorVersionByVersionCache,
+            CacheId.MINOR_VERSION_BY_VERSION_NAME_AND_PROJECT to minorVersionByVersionNameAndProjectCache,
+
+            CacheId.JIRA_COMPONENT_BY_PROJECT_VERSION to jiraComponentByProjectAndVersion,
+            CacheId.JIRA_COMPONENT_BY_COMPONENT_VERSION to jiraComponentByComponentNameAndVersionCache,
+            CacheId.JIRA_COMPONENTS_BY_PROJECT_KEY to jiraComponentsByProjectCache,
+
+            CacheId.DISTRIBUTION_BY_JIRA_PROJECT_VERSION to distributionCacheByJiraProjectVersion,
+            CacheId.DISTRIBUTION_BY_PROJECT_KEY to componentsDistributionByJiraProjectCache,
+            CacheId.DISTRIBUTION_BY_COMPONENT_VERSION to distributionByComponentVersionCache,
+
+            CacheId.VCS_SETTINGS_BY_JIRA_PROJECT_VERSION to vcsSettingsByJiraProjectVersionCache,
+            CacheId.VCS_SETTINGS_BY_COMPONENT_VERSION to vcsSettingsByComponentVersionCache,
+
+            CacheId.IS_COMPONENT_EXISTS_BY_PROJECT_VERSION to componentExistsByJiraProjectVersionCache,
+            CacheId.IS_COMPONENT_EXISTS_BY_PROJECT_KEY to componentExistsByJiraProjectCache,
+
+            CacheId.DETAILED_COMPONENT_VERSION to detailedComponentVersionCache,
+            CacheId.DETAILED_COMPONENT_VERSIONS to detailedComponentVersionsCache,
+
+            CacheId.DETAILED_COMPONENT to detailedComponentCache
         )
     }
 
