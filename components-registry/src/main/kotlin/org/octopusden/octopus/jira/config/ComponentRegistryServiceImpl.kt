@@ -311,9 +311,6 @@ class ComponentRegistryServiceImpl @Inject constructor(
         val message = if (needClean) {
             val inFlightAtCleanStart = loaderTracker.inFlight.get()
             clearAllCaches()
-            // Stamp AFTER clear() runs so any loader whose put() happens after this point
-            // and whose start was before this point gets flagged by LoaderTracker.wrap()
-            // as a POSSIBLE STALE REINSERT.
             loaderTracker.markCleaned()
             this.fixedRemoteStatus = remoteStatus
 

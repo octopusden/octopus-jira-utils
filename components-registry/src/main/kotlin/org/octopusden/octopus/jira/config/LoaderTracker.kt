@@ -6,17 +6,19 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.slf4j.LoggerFactory
 
 /**
- * Detects the cache-loader race described as H4:
- *  - a loader call started BEFORE `clear()` ran,
- *  - finished AFTER `clear()`,
- *  - therefore silently re-inserted a value fetched against the pre-clean state
- *    of the remote service, overwriting the just-cleared entry with stale data.
+ * Detects a race between cache-loader calls and `clear()`:
+ *  - a loader call starts BEFORE `clear()` runs,
+ *  - the loader's remote call finishes AFTER `clear()`,
+ *  - so the loader silently re-inserts a value that was fetched against the
+ *    pre-clean state of the remote service, overwriting the just-cleared entry
+ *    with stale data. The cache then serves that stale value until the next clear.
  *
  * Usage:
  *  1. Hold a single [LoaderTracker] instance per service.
  *  2. Wrap every loader lambda with [wrap] (or use [CacheManager.trackedCache]).
  *  3. Right after your `clear()` call, invoke [markCleaned].
- *  4. On a race, a `POSSIBLE STALE REINSERT` WARN is emitted naming the cache and key.
+ *  4. When the race occurs, a `POSSIBLE STALE REINSERT` WARN is emitted naming
+ *     the cache and the exact key that is now stale.
  *
  * Overhead: ~100–200 ns per cache miss (two `System.nanoTime()`, one atomic inc/dec,
  * one volatile read). Zero overhead on cache hits. Constant memory.
