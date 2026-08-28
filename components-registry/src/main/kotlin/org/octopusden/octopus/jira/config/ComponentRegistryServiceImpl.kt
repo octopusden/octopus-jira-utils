@@ -303,7 +303,9 @@ class ComponentRegistryServiceImpl @Inject constructor(
 
     override fun checkCacheActualityAndClean(forceClean: Boolean): UpdateCacheResult {
         val serviceStatus = client.getServiceStatus()
-        val remoteStatus = serviceStatus.versionControlRevision ?: serviceStatus.cacheUpdatedAt
+        val remoteStatus = serviceStatus.configRevision
+            ?: serviceStatus.versionControlRevision
+            ?: serviceStatus.cacheUpdatedAt
 
         val previousFixedRemoteStatus = this.fixedRemoteStatus
         val needClean = forceClean || previousFixedRemoteStatus != remoteStatus
