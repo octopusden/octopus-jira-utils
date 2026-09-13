@@ -70,7 +70,7 @@
             <plugin>
                 <groupId>org.jetbrains.dokka</groupId>
                 <artifactId>dokka-maven-plugin</artifactId>
-                <version>1.9.0</version>
+                <version>1.9.20</version>
                 <configuration>
                     <sourceDirectories>
                         <dir>${project.basedir}/src/main/kotlin</dir>
