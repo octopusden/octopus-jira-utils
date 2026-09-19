@@ -19,6 +19,6 @@ jobs:
     # release run on JDK 8 (see build.yml and release.yml) for Jira 8.5 compatibility, so on
     # those runs the profile never activates and no gate executes. This job exists to give the
     # gates a JVM they run on; the artefacts it builds are thrown away.
-    uses: octopusden/octopus-base/.github/workflows/common-java-maven-build.yml@v3.0.2
+    uses: octopusden/octopus-base/.github/workflows/common-java-maven-build.yml@v3.0.3
     with:
       java-version: '11'
