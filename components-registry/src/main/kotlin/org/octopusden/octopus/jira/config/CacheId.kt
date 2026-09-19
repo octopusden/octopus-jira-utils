@@ -27,9 +27,9 @@ enum class CacheId {
     DETAILED_COMPONENT_VERSION,
     DETAILED_COMPONENT_VERSIONS,
 
-    DETAILED_COMPONENT;
+    DETAILED_COMPONENT,
 
-    fun id(): String {
-        return "ComponentRegistryService:$name"
-    }
+    ;
+
+    fun id(): String = "ComponentRegistryService:$name"
 }

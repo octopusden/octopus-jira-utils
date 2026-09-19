@@ -3,22 +3,21 @@ package org.octopusden.octopus.jira.config
 import com.atlassian.jira.project.Project
 import com.atlassian.jira.project.version.Version
 import org.octopusden.octopus.jira.model.Component
+import org.octopusden.octopus.jira.model.DetailedComponent
 import org.octopusden.octopus.jira.model.DetailedComponentVersion
 import org.octopusden.octopus.jira.model.DetailedComponentVersions
 import org.octopusden.octopus.jira.model.Distribution
 import org.octopusden.octopus.jira.model.JiraComponentVersionRange
 import org.octopusden.octopus.jira.model.JiraProjectVersion
+import org.octopusden.octopus.jira.model.UpdateCacheResult
 import org.octopusden.octopus.jira.model.VCSSettings
+import org.octopusden.octopus.releng.JiraComponentVersionFormatter
 import org.octopusden.octopus.releng.dto.ComponentVersion
 import org.octopusden.octopus.releng.dto.JiraComponentVersion
-import java.util.Optional
-import org.octopusden.octopus.jira.model.DetailedComponent
-import org.octopusden.octopus.jira.model.UpdateCacheResult
-import org.octopusden.octopus.releng.JiraComponentVersionFormatter
 import org.octopusden.releng.versions.VersionNames
+import java.util.Optional
 
 interface ComponentRegistryService {
-
     fun getAllComponents(): List<Component>
 
     fun getComponent(component: String): Optional<Component>
@@ -27,7 +26,10 @@ interface ComponentRegistryService {
 
     fun getMinorVersion(version: Version): Optional<String>
 
-    fun getMinorVersion(versionName: String, project: Project): Optional<String>
+    fun getMinorVersion(
+        versionName: String,
+        project: Project,
+    ): Optional<String>
 
     fun getJiraComponentByProjectAndVersion(jiraProjectVersion: JiraProjectVersion): Optional<JiraComponentVersion>
 
@@ -55,7 +57,10 @@ interface ComponentRegistryService {
 
     fun getDetailedComponentVersion(componentVersion: ComponentVersion): DetailedComponentVersion
 
-    fun getDetailedComponentVersions(component: String, versions: Set<String>): DetailedComponentVersions
+    fun getDetailedComponentVersions(
+        component: String,
+        versions: Set<String>,
+    ): DetailedComponentVersions
 
     fun checkCacheActualityAndClean(forceClean: Boolean = false): UpdateCacheResult
 
@@ -63,5 +68,8 @@ interface ComponentRegistryService {
 
     fun getComponentVersionFormatter(): JiraComponentVersionFormatter
 
-    fun getDetailedComponent(component: String, version: String): DetailedComponent
+    fun getDetailedComponent(
+        component: String,
+        version: String,
+    ): DetailedComponent
 }

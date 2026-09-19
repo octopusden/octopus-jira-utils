@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonProperty
 /**
  * Legacy DTO using to ExternalRegistryVcsSettings store
  */
-data class VcsRootWrapper @JsonCreator constructor(
-    @JsonProperty("root") @JsonAlias("first") val root: VersionControlSystemRoot
-)
+data class VcsRootWrapper
+    @JsonCreator
+    constructor(
+        @JsonProperty("root") @JsonAlias("first") val root: VersionControlSystemRoot,
+    )

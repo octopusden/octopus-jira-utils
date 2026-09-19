@@ -2,9 +2,9 @@ package org.octopusden.octopus.jira.config
 
 import com.atlassian.cache.Cache
 import com.atlassian.cache.CacheManager
+import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import org.slf4j.LoggerFactory
 
 /**
  * Detects a race between cache-loader calls and `clear()`:
@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory
  * one map read). Zero overhead on cache hits. Constant memory (one map entry per cache).
  */
 class LoaderTracker {
-
     val inFlight: AtomicInteger = AtomicInteger(0)
 
     private val lastCleanAtNanosByCache: ConcurrentHashMap<String, Long> = ConcurrentHashMap()
@@ -44,32 +43,37 @@ class LoaderTracker {
     fun lastCleanAtNanos(cacheName: String): Long = lastCleanAtNanosByCache[cacheName] ?: 0L
 
     /** Wraps a cache-loader lambda with start/finish bookkeeping and race detection. */
-    fun <K, V> wrap(cacheName: String, fn: (K) -> V): (K) -> V = { key ->
-        val startedAt = System.nanoTime()
-        inFlight.incrementAndGet()
-        try {
-            val value = fn(key)
-            val finishedAt = System.nanoTime()
-            val cleanAt = lastCleanAtNanos(cacheName)
-            // If current cache was cleared strictly between our start and our finish,
-            // our about-to-be-cached value may be stale and would overwrite the clean.
-            if (cleanAt in (startedAt + 1)..finishedAt) {
-                log.warn(
-                    "POSSIBLE STALE REINSERT in cache '{}': loader for key='{}' started {}ms before clear() ran, " +
-                        "finishing now will overwrite the cleared entry with data fetched from the pre-clean state of the remote service. " +
-                        "elapsedMs={}, inFlightNow={}",
-                    cacheName,
-                    key,
-                    (cleanAt - startedAt) / 1_000_000,
-                    (finishedAt - startedAt) / 1_000_000,
-                    inFlight.get()
-                )
+    fun <K, V> wrap(
+        cacheName: String,
+        fn: (K) -> V,
+    ): (K) -> V =
+        { key ->
+            val startedAt = System.nanoTime()
+            inFlight.incrementAndGet()
+            try {
+                val value = fn(key)
+                val finishedAt = System.nanoTime()
+                val cleanAt = lastCleanAtNanos(cacheName)
+                // If current cache was cleared strictly between our start and our finish,
+                // our about-to-be-cached value may be stale and would overwrite the clean.
+                if (cleanAt in (startedAt + 1)..finishedAt) {
+                    log.warn(
+                        "POSSIBLE STALE REINSERT in cache '{}': loader for key='{}' started {}ms before clear() ran, " +
+                            "finishing now will overwrite the cleared entry with data fetched from the " +
+                            "pre-clean state of the remote service. " +
+                            "elapsedMs={}, inFlightNow={}",
+                        cacheName,
+                        key,
+                        (cleanAt - startedAt) / 1_000_000,
+                        (finishedAt - startedAt) / 1_000_000,
+                        inFlight.get(),
+                    )
+                }
+                value
+            } finally {
+                inFlight.decrementAndGet()
             }
-            value
-        } finally {
-            inFlight.decrementAndGet()
         }
-    }
 
     companion object {
         private val log = LoggerFactory.getLogger(LoaderTracker::class.java)
@@ -84,6 +88,5 @@ class LoaderTracker {
 inline fun <reified K : Any, reified V : Any> CacheManager.trackedCache(
     cacheId: CacheId,
     tracker: LoaderTracker,
-    noinline loader: (K) -> V
+    noinline loader: (K) -> V,
 ): Cache<K, V> = getCache(cacheId.id(), tracker.wrap(cacheId.id(), loader))
-

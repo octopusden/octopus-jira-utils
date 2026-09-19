@@ -12,5 +12,5 @@ data class DetailedComponent(
     val buildSystem: BuildSystem,
     val vcsSettings: VCSSettings,
     val jiraComponentVersion: JiraComponentVersion,
-    val detailedComponentVersion: DetailedComponentVersion
+    val detailedComponentVersion: DetailedComponentVersion,
 )
