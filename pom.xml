@@ -229,6 +229,21 @@
                             </sources>
                         </configuration>
                     </execution>
+                    <!-- generate-sources, not the conventional generate-test-sources: the Sonar
+                         scanner runs as a separate Maven process that stops at generate-sources,
+                         so a test root registered later never reaches analysis. -->
+                    <execution>
+                        <id>add-test-kotlin-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/test/kotlin</source>
+                            </sources>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>
