@@ -15,12 +15,11 @@ on:
           - minor
           - major
 
-# No dry-run input, deliberately. check-and-register.yml fires on this workflow completing
-# successfully, and a dry run completes successfully while releasing nothing - the version
-# resolver then finds no release carrying the run's stamp and falls back to the most recently
-# created release, re-registering a version that was already released. Observed live on
-# octopus-parent: a dry run registered 2.2.0 a second time. Tracked in octopusden/octopus-base#236;
-# the input can come back once registration skips dry runs.
+# No dry-run input, deliberately. check-and-register.yml fires whenever this workflow completes
+# successfully, and a dry run does - releasing nothing. Registration then cannot find the release
+# it should record and falls back to the most recently created one, re-registering a version that
+# already shipped. The input belongs here once registration moves inside the release workflow,
+# where it is gated on dry-run.
 jobs:
   build:
     uses: octopusden/octopus-base/.github/workflows/common-java-maven-release.yml@v3.0.3
