@@ -14,12 +14,13 @@ on:
           - patch
           - minor
           - major
-      dry-run:
-        description: Run the release flow without publishing or creating a release
-        required: false
-        type: boolean
-        default: false
 
+# No dry-run input, deliberately. check-and-register.yml fires on this workflow completing
+# successfully, and a dry run completes successfully while releasing nothing - the version
+# resolver then finds no release carrying the run's stamp and falls back to the most recently
+# created release, re-registering a version that was already released. Observed live on
+# octopus-parent: a dry run registered 2.2.0 a second time. Tracked in octopusden/octopus-base#236;
+# the input can come back once registration skips dry runs.
 jobs:
   build:
     uses: octopusden/octopus-base/.github/workflows/common-java-maven-release.yml@v3.0.3
@@ -27,5 +28,4 @@ jobs:
       java-version: '8'
       flow-type: public
       increment-version-level: ${{ inputs.increment-version-level }}
-      dry-run: ${{ inputs.dry-run }}
     secrets: inherit
