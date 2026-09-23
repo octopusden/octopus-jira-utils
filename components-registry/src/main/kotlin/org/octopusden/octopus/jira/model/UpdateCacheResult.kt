@@ -1,3 +1,5 @@
 package org.octopusden.octopus.jira.model
 
-data class UpdateCacheResult(val message: String)
+data class UpdateCacheResult(
+    val message: String,
+)

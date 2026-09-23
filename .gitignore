@@ -10,3 +10,5 @@ target/
 *.iws
 *.orig
 *.orig2
+.DS_Store
+.vscode/

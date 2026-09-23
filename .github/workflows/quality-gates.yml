@@ -1,0 +1,24 @@
+name: Quality Gates
+
+# pull_request for feature branches, push only for main. `on: push` alongside `pull_request`
+# runs this whole Maven build twice for every commit on an open PR, for identical coverage.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The analysers read the repository and nothing else.
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    # Checkstyle, PMD, SpotBugs, detekt, ktlint and the JaCoCo coverage floor come from
+    # octopus-parent, whose octopus-quality profile activates on <jdk>[11,)</jdk>. Compile and
+    # release run on JDK 8 (see build.yml and release.yml) for Jira 8.5 compatibility, so on
+    # those runs the profile never activates and no gate executes. This job exists to give the
+    # gates a JVM they run on; the artefacts it builds are thrown away.
+    uses: octopusden/octopus-base/.github/workflows/common-java-maven-build.yml@v3.0.3
+    with:
+      java-version: '11'

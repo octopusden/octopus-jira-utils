@@ -7,6 +7,14 @@
         <artifactId>jira-utils-parent</artifactId>
         <version>2.0-SNAPSHOT</version>
     </parent>
+
+    <properties>
+        <!-- 12 SpotBugs findings, every one of them EI_EXPOSE_REP2 on constructors that store the
+             Jira managers handed to them. A ratchet, not an endorsement: it stops the count
+             growing. This module has no tests, so JaCoCo produces no data and its gate is inert. -->
+        <octopus.quality.maxViolations.spotbugs>12</octopus.quality.maxViolations.spotbugs>
+    </properties>
+
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>helper-services</artifactId>

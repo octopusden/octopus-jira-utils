@@ -1,11 +1,34 @@
 name: Maven Release
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      increment-version-level:
+        description: >-
+          Semver level to bump the latest tag by. `patch` suits a routine release; pick `minor` when
+          the release changes behaviour consumers can observe.
+        required: false
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      dry-run:
+        description: Run the release flow without publishing or creating a release
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
-    uses: octopusden/octopus-base/.github/workflows/common-java-maven-release.yml@v2.2.0
+    uses: octopusden/octopus-base/.github/workflows/common-java-maven-release.yml@v3.0.3
     with:
       java-version: '8'
       flow-type: public
+      increment-version-level: ${{ inputs.increment-version-level }}
+      dry-run: ${{ inputs.dry-run }}
+      # Registration lives in the release job: exact version from the build output, gated on
+      # !dry-run. Replaces a workflow_run listener that had to guess the version.
+      register-release-immediately: true
     secrets: inherit

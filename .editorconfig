@@ -1,0 +1,16 @@
+root = true
+
+[*.{kt,kts}]
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+max_line_length = 140
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+
+# A ktlint_official style preference, not a correctness rule: it rewrites `val x = if (...) {` as
+# `val x =` plus an indented block. Measured here: 29 findings in ComponentRegistryServiceImpl.kt alone,
+# all pure reformatting. It converges in one ktlint:format pass, so this is a taste call, not a
+# workaround - enable it and reformat when someone wants that style repository-wide.
+ktlint_standard_multiline-expression-wrapping = disabled

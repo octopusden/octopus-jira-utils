@@ -7,5 +7,5 @@ data class JiraComponentVersionRange(
     val versionRange: String,
     val jiraComponent: JiraComponent,
     val distribution: Distribution,
-    val vcsSettings: VCSSettings
+    val vcsSettings: VCSSettings,
 )

@@ -16,6 +16,13 @@
         <!-- required by maven-crm-plugin 5.x -->
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+
+        <!-- Strict, as everywhere else. The seven Checkstyle findings this module used to report were
+             all in the Java stubs gmavenplus generates for the Groovy tests; octopus-parent 2.2.1 keeps
+             the analysers out of generated sources, so the count is 0. -->
+        <!-- Coverage is gated separately and enforced: measured 0.6410. -->
+        <octopus.coverage.failOnViolation>true</octopus.coverage.failOnViolation>
+        <octopus.coverage.minimumLine>0.60</octopus.coverage.minimumLine>
     </properties>
     <dependencies>
         <dependency>
