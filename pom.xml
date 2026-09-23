@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.octopusden.octopus</groupId>
         <artifactId>octopus-parent</artifactId>
-        <version>2.2.1</version>
+        <version>2.3.0</version>
     </parent>
 
     <groupId>org.octopusden.octopus.jira</groupId>
@@ -28,13 +28,12 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <jira.version>8.5.1</jira.version>
-    
-        <!-- The gates are enforced here, not advisory. They run in the Quality Gates workflow on
-             JDK 11; the JDK 8 compile and release builds never activate octopus-parent's quality
-             profile, so these properties have no effect there. Per-module ratchets sit in the
-             module poms and are the numbers this repository measures today. -->
-        <octopus.quality.failOnViolation>true</octopus.quality.failOnViolation>
-</properties>
+
+        <!-- The gates run in the Quality Gates workflow on JDK 11; the JDK 8 compile and release builds
+             never activate octopus-parent's quality profile, so the thresholds have no effect there.
+             Per-module ratchets sit in the module poms and are the numbers this repository measures
+             today. Enforcement is octopus-parent 2.3.0's default, so it is no longer set here. -->
+    </properties>
 
     <dependencyManagement>
         <dependencies>
