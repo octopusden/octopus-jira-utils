@@ -29,7 +29,7 @@
         <dependency>
             <groupId>org.octopusden.octopus.infrastructure</groupId>
             <artifactId>components-registry-service-client</artifactId>
-            <version>3.0.11</version>
+            <version>3.0.12</version>
         </dependency>
         <dependency>
             <groupId>io.github.openfeign</groupId>
