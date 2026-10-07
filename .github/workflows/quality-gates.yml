@@ -1,11 +1,10 @@
 name: Quality Gates
 
-# pull_request for feature branches, push only for main. `on: push` alongside `pull_request`
-# runs this whole Maven build twice for every commit on an open PR, for identical coverage.
+# Pull requests run this through merge-gate.yml, not on their own; push only for main.
 on:
-  pull_request:
   push:
     branches: [main]
+  workflow_call:
   workflow_dispatch:
 
 # The analysers read the repository and nothing else.
