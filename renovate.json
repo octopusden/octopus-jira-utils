@@ -2,5 +2,37 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "The plugins run on Jira 8.13-8.20: compile against Jira 8.x not newer than 8.13",
+      "matchPackageNames": ["com.atlassian.jira:jira-api"],
+      "allowedVersions": "<8.14"
+    },
+    {
+      "description": "Jackson comes from Jira 8.x at runtime",
+      "matchPackageNames": ["/^com\\.fasterxml\\.jackson\\./"],
+      "allowedVersions": "<2.11"
+    },
+    {
+      "description": "slf4j comes from Jira 8.x at runtime",
+      "matchPackageNames": ["org.slf4j:slf4j-api"],
+      "allowedVersions": "<1.8"
+    },
+    {
+      "description": "Tests use Spock 1.x for Groovy 2.4: keep Groovy on 2.4",
+      "matchPackageNames": ["org.codehaus.groovy:groovy-all"],
+      "allowedVersions": "<2.5"
+    },
+    {
+      "description": "Keep Spock on the builds for Groovy 2.4",
+      "matchPackageNames": ["org.spockframework:spock-core"],
+      "allowedVersions": "/^1\\.[0-9.]+-groovy-2\\.4$/"
+    },
+    {
+      "description": "Stay on gmavenplus 1.x; newer majors are updated by hand",
+      "matchPackageNames": ["org.codehaus.gmavenplus:gmavenplus-plugin"],
+      "allowedVersions": "<2"
+    }
   ]
 }
